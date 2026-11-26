@@ -1,0 +1,16 @@
+name = "fitness-tracker"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fitness-tracker-db"
+database_id = "2402d5b5-bab6-423b-b394-407378c0c383"
+
+# Configure JWT_SECRET with `wrangler pages secret put JWT_SECRET`.
+# Never put secrets in this file or in NEXT_PUBLIC_* variables.
+# Before enabling preview deployments, bind a separate D1 database:
+# [[env.preview.d1_databases]]
+# binding = "DB"
+# database_name = "fitness-tracker-preview-db"
+# database_id = "REPLACE_WITH_PREVIEW_D1_DATABASE_ID"

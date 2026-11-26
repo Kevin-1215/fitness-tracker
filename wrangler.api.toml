@@ -1,0 +1,14 @@
+name = "form-fitness-api"
+main = "worker/index.ts"
+compatibility_date = "2026-07-01"
+workers_dev = true
+
+[vars]
+FRONTEND_ORIGIN = "https://kevin-1215.github.io"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "fitness-tracker-db"
+database_id = "2402d5b5-bab6-423b-b394-407378c0c383"
+
+# Set JWT_SECRET through `wrangler secret put JWT_SECRET --config wrangler.api.toml`.

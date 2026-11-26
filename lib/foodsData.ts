@@ -1,0 +1,24 @@
+export interface FoodPreset { id:string; name:string; portion:string; calories:number; protein_g:number; carbs_g:number; fat_g:number }
+/** 常見份量的估算捷徑；實際品牌與烹調方式不同，表單皆可修改。 */
+export const foodsData: readonly FoodPreset[] = [
+  {id:"chicken_breast",name:"雞胸肉（熟）",portion:"100 g",calories:165,protein_g:31,carbs_g:0,fat_g:3.6},
+  {id:"rice",name:"白飯（熟）",portion:"150 g",calories:195,protein_g:3.9,carbs_g:43,fat_g:.5},
+  {id:"tea_egg",name:"茶葉蛋",portion:"1 顆／約 50 g",calories:75,protein_g:6.5,carbs_g:1,fat_g:5},
+  {id:"whey",name:"乳清蛋白",portion:"1 份／30 g",calories:120,protein_g:24,carbs_g:3,fat_g:1.5},
+  {id:"sweet_potato",name:"地瓜（熟）",portion:"150 g",calories:129,protein_g:2.4,carbs_g:30.2,fat_g:.2},
+  {id:"oats",name:"燕麥片（乾）",portion:"40 g",calories:156,protein_g:6.8,carbs_g:26.5,fat_g:2.8},
+  {id:"whole_wheat_bread",name:"全麥吐司",portion:"2 片／60 g",calories:150,protein_g:6,carbs_g:27,fat_g:2.2},
+  {id:"banana",name:"香蕉",portion:"1 根／120 g",calories:107,protein_g:1.3,carbs_g:27.4,fat_g:.4},
+  {id:"apple",name:"蘋果",portion:"1 個／180 g",calories:95,protein_g:.5,carbs_g:25,fat_g:.3},
+  {id:"milk",name:"低脂牛奶",portion:"240 ml",calories:110,protein_g:8,carbs_g:12,fat_g:3},
+  {id:"soy_milk",name:"無糖豆漿",portion:"300 ml",calories:100,protein_g:9,carbs_g:5,fat_g:4.5},
+  {id:"greek_yogurt",name:"無糖希臘優格",portion:"150 g",calories:100,protein_g:15,carbs_g:6,fat_g:1},
+  {id:"salmon",name:"鮭魚（熟）",portion:"100 g",calories:208,protein_g:22,carbs_g:0,fat_g:13},
+  {id:"tuna",name:"水煮鮪魚",portion:"100 g／瀝乾",calories:116,protein_g:26,carbs_g:0,fat_g:1},
+  {id:"chicken_thigh",name:"去皮雞腿（熟）",portion:"100 g",calories:179,protein_g:25,carbs_g:0,fat_g:8},
+  {id:"beef",name:"牛腱（熟）",portion:"100 g",calories:185,protein_g:29,carbs_g:0,fat_g:7},
+  {id:"tofu",name:"板豆腐",portion:"100 g",calories:88,protein_g:7.5,carbs_g:2,fat_g:5},
+  {id:"edamame",name:"毛豆仁",portion:"100 g",calories:121,protein_g:12,carbs_g:9,fat_g:5},
+  {id:"broccoli",name:"花椰菜（熟）",portion:"100 g",calories:35,protein_g:2.4,carbs_g:7,fat_g:.4},
+  {id:"almonds",name:"杏仁",portion:"20 g",calories:116,protein_g:4,carbs_g:4,fat_g:10},
+];

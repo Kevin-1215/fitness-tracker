@@ -1,0 +1,49 @@
+{
+  "name": "fitness-tracker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "dev": "wrangler pages dev dist --ip 127.0.0.1 --port 8788",
+    "build": "node scripts/build.mjs",
+    "pages:deploy": "wrangler pages deploy dist",
+    "api:deploy": "wrangler deploy --config wrangler.api.toml",
+    "test:cors": "node --test tests/cors.test.mjs",
+    "check": "tsc --noEmit",
+    "test": "node --test tests/auth.edge.test.mjs",
+    "test:routing": "node tests/check-pages-routing.mjs",
+    "test:muscles": "node --test tests/muscle-viewer.test.mjs",
+    "test:dashboard": "node --test tests/dashboard-api.test.mjs",
+    "preview:muscles": "vite --config vite.demo.config.ts",
+    "build:muscles": "vite build --config vite.demo.config.ts",
+    "db:init": "wrangler d1 execute DB --remote --file=schema.sql"
+  },
+  "dependencies": {
+    "@react-three/drei": "10.7.9",
+    "@react-three/fiber": "9.8.2",
+    "@react-three/postprocessing": "3.2.2",
+    "jose": "^6.1.3",
+    "lucide-react": "^1.79.0",
+    "postprocessing": "^6.39.6",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "three": "0.187.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261123.1",
+    "@react-three/test-renderer": "^9.1.1",
+    "@types/node": "^22.19.19",
+    "@types/react": "^19.3.1",
+    "@types/react-dom": "^19.3.0",
+    "@types/three": "^0.187.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "esbuild": "^0.28.2",
+    "miniflare": "^4.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.8",
+    "wrangler": "^4.92.0"
+  }
+}
