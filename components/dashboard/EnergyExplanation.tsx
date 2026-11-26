@@ -9,7 +9,7 @@ export default function EnergyExplanation({data}:{data:ProfileResponse|null}){
       <p>本應用的每日目標：減脂為 TDEE × 85%，維持為 100%，增肌為 110%。這是成人估算與應用預設，可隨體重與活動量更新。</p>
       {metrics&&profile&&<p className="energy-explainer__example">目前：BMR {metrics.bmr.toLocaleString()} → × {profile.activity_level} 活動係數 → TDEE {metrics.tdee.toLocaleString()} → 每日目標 {metrics.target_calories.toLocaleString()} kcal。</p>}
     </article><article><h3>飲食攝取：依食物與份量加總</h3>
-      <p>選擇下方食物捷徑，再調整份數，會自動帶入熱量與蛋白質／碳水／脂肪。自訂餐點需填入實際包裝或店家的營養標示，單填名稱不會自動辨識。</p>
+      <p>選擇下方食物捷徑，再調整份數，會帶入已知的熱量與營養素。自訂餐點依包裝或店家標示填寫，單填名稱不會自動辨識。碳水／脂肪若未提供，可留白；當日統計以 ≥ 標示僅加總已知值，不會把未知當作實際 0 g。</p>
       <p>若只有三大營養素，可按「依營養素估算熱量」：蛋白質 × 4＋碳水 × 4＋脂肪 × 9。這是概算，可能因纖維與標示進位等因素與包裝不同，優先使用實際標示。</p>
       <p>目前沒有拍照辨識，也不會把重量 × 次數換成運動消耗熱量或從飲食總量扣除。</p>
     </article></div>

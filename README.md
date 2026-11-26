@@ -1,64 +1,32 @@
 # FORM｜重訓與飲食熱量追蹤
 
-已完成會員註冊／登入、D1 個人設定與訓練／飲食 API、50 個動作百科、互動 3D 教學，以及完整的響應式儀表板。依本次指定，正式版使用 GitHub Pages 前端＋Cloudflare Worker API，D1 為唯一資料庫；也保留整站部署 Cloudflare Pages 的設定。
+已完成會員註冊／登入、D1 個人設定與訓練／飲食 API、50 個動作的來源影片與中文教學、互動 3D 肌群，以及完整的響應式儀表板。依本次指定，正式版使用 GitHub Pages 前端＋Cloudflare Worker API，D1 為唯一資料庫；也保留整站部署 Cloudflare Pages 的設定。
 
 - [儀表板與 API 欄位、公式及資料隔離](docs/API.md)
 - [GitHub Pages＋Cloudflare API 部署、CORS 與跨站 Cookie](docs/GITHUB-PAGES.md)
 
-`app/dashboard/page.tsx` 是 React 頁面入口，由 `src/main.tsx` 載入。`components/dashboard/` 包含會員畫面、動作庫與組數、休息計時器、身體設定與飲食表單；`components/ExerciseDetailModal.tsx` 整合放大版 3D 與四步教學。正式版不依賴外部模型或食品 API。
+`app/dashboard/page.tsx` 是 React 頁面入口，由 `src/main.tsx` 載入。`components/dashboard/` 包含會員畫面、動作庫與組數、休息計時器、身體設定與飲食表單；`components/ExerciseDetailModal.tsx` 整合實人影片、中文檢查點、練習組數與 3D 肌群總覽。3D 不下載模型；影片由原作者平台載入，不轉存影片。食物預設不呼叫外部食品 API。
 
 新版檢查與新增內容見 [3D 檢查紀錄](docs/EXERCISE-REVIEW.md)。
 
-## Task 2：動作百科與 3D 人體
+## 動作教學與 3D 肌群
 
-入口為 `lib/exercisesData.ts`、`components/MuscleViewer3D.tsx`，並使用 `lib/motionRig.ts` 與 `components/anatomy/` 的曲面、材質、器械和樣式模組。整合時請一併複製這些模組。六大分類至少各四個動作，每一分類皆有四種器材；包含參考圖中的反手高位下拉與坐姿寬距對握划船；本次另新增 24 個動作，總共 50 個。每個動作都有中英名稱、主要／協同肌群、難度、動畫模式、四步教學、呼吸與常見錯誤。
+動作百科共 50 項，原有代碼保持不變。
 
-元件保留 `'use client'`，可在 React + Vite 或 Next.js 使用；所有幾何、肌群紋理與環境照明皆由程式產生，不下載外部 GLB、貼圖、HDR、字型或 API 資料。新版以連續截面曲線建立實體軀幹、四肢與頸部，肌群貼面順著身體表面延伸，Shader 表現肌纖維紋路，並使用 Bloom、柔光環境與地面陰影。滑輪機有機架、配重片、座墊、握桿與跟隨動作的纜線；其他動作使用對應的槓鈴、啞鈴、凳面或踏板。
+- `lib/exerciseSources.ts`：每一動作對應 NASM、Muscle & Strength 或 Mayo Clinic 的來源及影片，版本差異會顯示在播放器旁。
+- `lib/exerciseCoaching.ts`：逐項中文握法／支撐、行程終點、簡化版本、節奏與每側提示。
+- `components/ExerciseDetailModal.tsx`：預設實人影片，外部播放器按需載入；無法內嵌時保留原影片與教學來源連結。
+- `components/ExercisePractice.tsx`：可調組數、次數／秒數、每側計數與 60／90／120 秒休息倒數。完成按鈕由使用者確認，不自動偵測次數，也不自動新增重量紀錄。
 
-主肌群橘紅、輔助肌群琥珀黃；重疊時主要肌群優先。`chest/back/legs/shoulders/arms/core` 群組名稱與細分肌群都可傳入。播放／暫停保留當前動作，肌群總覽會回到站姿；棒式維持等長支撐。正面、側面、背面與重置視角可重複點擊，重新定位鏡頭。選動作時更新 props 即可，不需要用 `key` 重建 Canvas。
+舊 IK 動作僅約束手腳端點，無法證明關節轉動與器材握法正確，因此正式版已停用合成動作與播放／進度控制。`MuscleViewer3D` 強制使用中立站姿的肌群總覽，即使舊呼叫者傳入 `isPlayingAnimation=true` 也不播放。保留正／側／背／重置、肌群點選、主橘紅／協同琥珀黃、透視、縮放與放大。肌群色彩不代表出力比例。
 
-新增互動：
+尚未完成具人體關節限制的 3D 動作重建；實際跟練請使用實人影片與中文步驟。可見的版本差異不可忽略，例如窄握來源不等於寬握、負重提踵影片不等於本頁徒手版本。
 
-- 拖曳進度或以鍵盤操作滑桿，停在循環中的任一姿勢；拖曳會自動暫停。
-- 0.5×、0.75×、1×、1.5× 播放速度，顯示向心／離心階段。
-- 點選人體肌群貼面或下方肌群按鈕，顯示中英名稱與功能說明。
-- 實體人偶為預設，透視按鈕可切回未參與肌群 opacity 0.3 的模式。
-- 放大檢視在網頁內展開，支援 Escape 關閉與焦點循環，不需要瀏覽器全螢幕權限。
-- 直式手機版將較長的肌群說明放在場景下方，避免遮住人體。
+## 常見食物
 
-元件有自己的範圍限定 CSS，不要求宿主先設定 Tailwind。預設不自動播放；減少動態效果的系統偏好會停用肌群呼吸燈，切換離開頁籤則暫停動畫更新。
+24 種份量捷徑，包含大乞丐超人 450 kcal／25 g 蛋白質、小乞丐超人 300 kcal／15 g、原味蛋餅 117 g 為 261 kcal／11 g、熱拿鐵約 12 oz 為 124 kcal／6.4 g（台灣麥當勞金選熱那堤，123.7 kcal 進位）。來源與份量直接顯示於表單。
 
-受控播放範例：
-
-```tsx
-'use client';
-import { useState } from 'react';
-import MuscleViewer3D from './components/MuscleViewer3D';
-import { exerciseById } from './lib/exercisesData';
-
-export default function ExercisePreview() {
-  const [playing, setPlaying] = useState(false);
-  const exercise = exerciseById.get('bench_press')!;
-  return <MuscleViewer3D
-    exerciseName={exercise.name}
-    primaryMuscles={exercise.primaryMuscles}
-    secondaryMuscles={exercise.secondaryMuscles}
-    animationType={exercise.animationType}
-    equipment={exercise.equipment}
-    isPlayingAnimation={playing}
-    onPlayingAnimationChange={setPlaying}
-  />;
-}
-```
-
-省略 `isPlayingAnimation` 時，內建按鈕會自行管理播放；傳入這個 prop 時，請同時提供 `onPlayingAnimationChange`，否則播放按鈕會停用並提示由父元件控制。
-
-```powershell
-pnpm run test:muscles
-pnpm run preview:muscles
-```
-
-本機獨立元件示範頁為 `http://127.0.0.1:4173/`；正式會員儀表板的本機入口為 `http://127.0.0.1:8788/`。3D 已整合於動作教學視窗，開啟時自動播放，關閉時卸載場景。模型用於關節與肌群分區示意，不是精密的人體生物力學模擬。
+兩款自訂食物的碳水／脂肪保留未知；API 接受顯式 null，飲食紀錄顯示未提供，統計以 ≥ 顯示已知量。既有資料透過 `migrations/0002_partial_nutrition.sql` 加入 known 欄位，不重建資料表、不刪除紀錄。
 
 使用原生 Edge handlers 取代已停止維護的 `@cloudflare/next-on-pages`。React＋Vite 建置到 `dist`，保留 `public/_routes.json`；不需要 Next.js 或 Node 相容旗標。`wrangler.toml` 用於同來源 Pages 版本，`wrangler.api.toml` 用於 GitHub Pages 搭配的 API Worker。兩者重用相同的 D1 handlers。
 
@@ -101,6 +69,7 @@ pnpm test
 pnpm run test:dashboard
 pnpm run test:cors
 pnpm run test:muscles
+pnpm run test:guides
 pnpm run build
 pnpm run test:routing
 ```

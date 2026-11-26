@@ -127,9 +127,9 @@ test("two-bone IK preserves segment lengths for reachable, unreachable, zero-dis
 
 test("server rendering remains browser-independent", () => {
   const html = renderToString(createElement(module.default, { primaryMuscles: ["chest"], animationType: "press_horizontal" }));
-  assert.match(html, /載入 3D 人體/);
-  assert.match(html, /播放 3D 動作示範/);
-  assert.match(html, /動作進度/);
+  assert.match(html, /載入 3D 肌群/);
+  assert.match(html, /data-mode="anatomy"/);
+  assert.ok(!html.includes('播放 3D 動作示範'));
   assert.match(html, /胸大肌/);
 });
 

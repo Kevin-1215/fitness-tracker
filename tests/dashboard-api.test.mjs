@@ -55,12 +55,29 @@ test("nutrition totals, bound SQL text and deletes remain account- and date-isol
   const first=await request("/api/nutrition",{method:"POST",body:food});assert.equal(first.status,201);const entry=(await first.json()).entry;
   await request("/api/nutrition",{method:"POST",body:{...food,food_name:"白飯",calories:195,protein_g:3.9,carbs_g:43,fat_g:.5}});
   await request("/api/nutrition",{method:"POST",body:{...food,log_date:previous,calories:900}});
-  const data=await(await request(`/api/nutrition?date=${date}`)).json();assert.deepEqual(data.totals,{calories:360,protein_g:34.9,carbs_g:43,fat_g:4.1});
+  const data=await(await request(`/api/nutrition?date=${date}`)).json();assert.deepEqual(data.totals,{calories:360,protein_g:34.9,carbs_g:43,fat_g:4.1,carbs_unknown_count:0,fat_unknown_count:0});
   assert.equal((await(await request(`/api/nutrition?date=${date}`,{cookie:bob})).json()).logs.length,0);
   assert.equal((await request(`/api/nutrition?id=${entry.id}`,{method:"DELETE",cookie:bob})).status,404);
   assert.equal((await request(`/api/nutrition?id=${entry.id}`,{method:"DELETE"})).status,200);
   assert.equal((await(await request(`/api/nutrition?date=${date}`)).json()).totals.calories,195);
   assert.equal((await request("/api/auth/me")).status,200);
+});
+
+test("partial food macros survive save/reload without pretending unknown is zero",async()=>{
+  const day='2026-11-27';
+  const body={log_date:day,meal_type:'lunch',food_name:'大乞丐超人',calories:450,protein_g:25,carbs_g:null,fat_g:null};
+  const created=await request('/api/nutrition',{method:'POST',body});assert.equal(created.status,201);
+  const initial=await created.json();assert.equal(initial.entry.carbs_g,null);assert.equal(initial.entry.fat_g,null);
+  await request('/api/nutrition',{method:'POST',body:{...body,food_name:'蛋餅',calories:261,protein_g:11,carbs_g:34,fat_g:9}});
+  const dayData=await(await request(`/api/nutrition?date=${day}`)).json();
+  assert.deepEqual(dayData.totals,{calories:711,protein_g:36,carbs_g:34,fat_g:9,carbs_unknown_count:1,fat_unknown_count:1});
+  assert.equal(dayData.logs.find(r=>r.food_name==='大乞丐超人').carbs_g,null);
+  assert.equal(dayData.logs.find(r=>r.food_name==='蛋餅').carbs_g,34);
+  assert.equal((await(await request(`/api/nutrition?date=${day}`,{cookie:bob})).json()).logs.length,0);
+  assert.equal((await request(`/api/nutrition?id=${initial.entry.id}`,{method:'DELETE',cookie:bob})).status,404);
+  for(const patch of [{calories:null},{protein_g:null},{carbs_g:-1},{fat_g:'unknown'}])assert.equal((await request('/api/nutrition',{method:'POST',body:{...body,...patch}})).status,400);
+  assert.equal((await request(`/api/nutrition?id=${initial.entry.id}`,{method:'DELETE'})).status,200);
+  const after=await(await request(`/api/nutrition?date=${day}`)).json();assert.equal(after.totals.carbs_unknown_count,0);assert.equal(after.totals.calories,261);
 });
 test("invalid dates, non-finite or negative numbers, unknown exercises and cross-origin mutations fail",async()=>{
   assert.equal((await request("/api/workouts?date=2026-02-30")).status,400);

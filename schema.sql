@@ -47,7 +47,9 @@ CREATE TABLE IF NOT EXISTS nutrition_logs (
   calories INTEGER NOT NULL CHECK (calories >= 0),
   protein_g REAL NOT NULL DEFAULT 0 CHECK (protein_g >= 0),
   carbs_g REAL NOT NULL DEFAULT 0 CHECK (carbs_g >= 0),
-  fat_g REAL NOT NULL DEFAULT 0 CHECK (fat_g >= 0)
+  fat_g REAL NOT NULL DEFAULT 0 CHECK (fat_g >= 0),
+  carbs_known INTEGER NOT NULL DEFAULT 1 CHECK (carbs_known IN (0,1)),
+  fat_known INTEGER NOT NULL DEFAULT 1 CHECK (fat_known IN (0,1))
 );
 
 CREATE INDEX IF NOT EXISTS idx_nutrition_user_date

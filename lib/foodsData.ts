@@ -1,6 +1,10 @@
-export interface FoodPreset { id:string; name:string; portion:string; calories:number; protein_g:number; carbs_g:number; fat_g:number }
+export interface FoodPreset { id:string; name:string; portion:string; calories:number; protein_g:number; carbs_g:number|null; fat_g:number|null; source?:{title:string;url:string}; note?:string }
 /** 常見份量的估算捷徑；實際品牌與烹調方式不同，表單皆可修改。 */
 export const foodsData: readonly FoodPreset[] = [
+  {id:"big_beggar_superman",name:"大乞丐超人",portion:"1 份",calories:450,protein_g:25,carbs_g:null,fat_g:null,note:"熱量與蛋白質依你的設定；碳水、脂肪尚未提供，可留白或依實際標示補填。"},
+  {id:"small_beggar_superman",name:"小乞丐超人",portion:"1 份",calories:300,protein_g:15,carbs_g:null,fat_g:null,note:"熱量與蛋白質依你的設定；碳水、脂肪尚未提供，可留白或依實際標示補填。"},
+  {id:"egg_pancake",name:"蛋餅（原味）",portion:"1 份／117 g",calories:261,protein_g:11,carbs_g:34,fat_g:9,source:{title:"國健署《健康生活動起來手冊》營養表",url:"https://health.hpa.gov.tw/common/Download.ashx?f=bcc451cd-f739-404e-814b-8b73bc956391.pdf&o=4.%E5%81%A5%E5%BA%B7%E7%94%9F%E6%B4%BB%E5%8B%95%E8%B5%B7%E4%BE%86%E6%89%8B%E5%86%8A.pdf"},note:"原味、不含額外配料與醬料；油量及店家份量不同時請調整。"},
+  {id:"latte",name:"拿鐵（熱）",portion:"1 杯／約 12 oz（355 ml）",calories:124,protein_g:6.4,carbs_g:9.9,fat_g:6.5,source:{title:"台灣麥當勞：金選那堤（熱）營養資訊",url:"https://www.mcdonalds.com/tw/zh-tw/whats-hot/0430SelectBrewCoffee.html"},note:"以麥當勞金選熱那堤為參考，未另加糖；官方 123.7 kcal 四捨五入為 124。奶種、杯量及糖漿不同請修改。"},
   {id:"chicken_breast",name:"雞胸肉（熟）",portion:"100 g",calories:165,protein_g:31,carbs_g:0,fat_g:3.6},
   {id:"rice",name:"白飯（熟）",portion:"150 g",calories:195,protein_g:3.9,carbs_g:43,fat_g:.5},
   {id:"tea_egg",name:"茶葉蛋",portion:"1 顆／約 50 g",calories:75,protein_g:6.5,carbs_g:1,fat_g:5},

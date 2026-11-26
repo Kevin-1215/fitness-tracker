@@ -78,13 +78,13 @@ export const exercisesData = [
     equipment: "啞鈴", difficulty: "中階", primaryMuscles: ["chest"],
     secondaryMuscles: ["front_delts", "triceps"], animationType: "press_incline",
     instructions: [
-      "凳面設為約 15–30 度上斜，雙腳踩穩；將啞鈴帶到胸部兩側，肩胛穩定、手腕與手肘上下對齊。",
+      "凳面先設約 30–45 度上斜（影片採約 45 度），雙腳踩穩；將啞鈴帶到胸部兩側，肩胛穩定、手腕與手肘上下對齊。",
       "緩慢將啞鈴降至上胸兩側，手肘略向身體收；依肩關節活動度決定深度，不追求啞鈴碰到胸口。",
       "以胸部發力向上、略向內推，雙側同步；讓前臂維持支撐啞鈴，不以腰部挺起增加行程。",
       "啞鈴到肩線上方時穩住，保留兩鈴間距，不互相敲擊；肩膀仍貼穩凳面。",
     ],
     breathing: "下降時吸氣，向上推時緩緩吐氣；每次重複重新建立腹部張力。",
-    commonMistakes: ["凳面過高會增加肩部負擔，先用低上斜角度與可控制重量。", "不要過度下放或把啞鈴直接丟下；結束時先移回大腿再坐起。"],
+    commonMistakes: ["調高凳角後重新減重；若需要挺腰或抬臀完成，先調整姿勢與重量。", "不要過度下放或把啞鈴直接丟下；結束時先移回大腿再坐起。"],
   },
   {
     id: "machine_chest_press", name: "坐姿機械胸推 (Seated Machine Chest Press)", category: "chest",

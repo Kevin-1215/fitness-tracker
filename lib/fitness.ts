@@ -24,9 +24,9 @@ export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 export const MEAL_LABELS: Record<MealType, string> = { breakfast: "早餐", lunch: "午餐", dinner: "晚餐", snack: "點心／加餐" };
 export interface NutritionLog {
   id: string; user_id: string; log_date: string; meal_type: MealType; food_name: string;
-  calories: number; protein_g: number; carbs_g: number; fat_g: number;
+  calories: number; protein_g: number; carbs_g: number|null; fat_g: number|null;
 }
-export interface NutritionTotals { calories: number; protein_g: number; carbs_g: number; fat_g: number }
+export interface NutritionTotals { calories: number; protein_g: number; carbs_g: number; fat_g: number; carbs_unknown_count:number; fat_unknown_count:number }
 export interface NutritionResponse { date: string; logs: NutritionLog[]; totals: NutritionTotals }
 
 /** 成人常用的 Mifflin-St Jeor 簡化式。目標係數是本應用的可見設定。 */
@@ -51,6 +51,6 @@ export function todayInTaipei() { return new Intl.DateTimeFormat("en-CA", { time
 export function localDateKey(date = new Date()) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}`; }
 export const round1 = (value: number) => Math.round(value * 10) / 10;
 export function sumNutrition(logs: readonly NutritionLog[]): NutritionTotals {
-  const totals=logs.reduce<NutritionTotals>((total, row) => ({ calories: total.calories + row.calories, protein_g: total.protein_g + row.protein_g, carbs_g: total.carbs_g + row.carbs_g, fat_g: total.fat_g + row.fat_g }), { calories:0, protein_g:0, carbs_g:0, fat_g:0 });
+  const totals=logs.reduce<NutritionTotals>((total, row) => ({ calories: total.calories + row.calories, protein_g: total.protein_g + row.protein_g, carbs_g: total.carbs_g + (row.carbs_g??0), fat_g: total.fat_g + (row.fat_g??0), carbs_unknown_count:total.carbs_unknown_count+(row.carbs_g===null?1:0), fat_unknown_count:total.fat_unknown_count+(row.fat_g===null?1:0) }), { calories:0, protein_g:0, carbs_g:0, fat_g:0,carbs_unknown_count:0,fat_unknown_count:0 });
   return {...totals,protein_g:round1(totals.protein_g),carbs_g:round1(totals.carbs_g),fat_g:round1(totals.fat_g)};
 }

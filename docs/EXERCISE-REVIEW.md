@@ -1,46 +1,78 @@
-# 3D 動作檢查與動作庫擴充
+# 動作教學查核與 3D 狀態（2026-11-26）
 
-本次將 26 個動作擴充為 50 個：胸 8、背 10、腿臀 8、肩 8、手臂 8、核心 8。原有代碼全數保留，既有 D1 訓練紀錄不需遷移。新增資料位於 `lib/additionalExercises.ts`，與原始資料合併後由 `exerciseById` 同時供前端和 API 使用。
+目前 50 個動作都有來源、影片入口、原創中文四步說明、呼吸、常見錯誤，及新增的支撐／握法、行程終點、簡化版本。動作代碼與歷史紀錄不改。
 
-## 本次修正
+## 為何停用舊 3D 動作
 
-- 依完整循環的骨架、人體厚度與器材範圍計算鏡頭目標與距離；每個視角依實際 Canvas 長寬比重新取景。放大檢視與手機切換尺寸也會重算，不依賴固定中心或 9 單位的縮放上限。
-- 將標題、肌群名稱、播放及視角控制移出 Canvas，避免蓋住人體。使用者自行縮放後可按重置恢復完整構圖。
-- 平凳與上斜凳靠墊使用和人體一致的根節點旋轉，修正上斜凳方向相反、背部懸空的問題。
-- 未參與肌群取消纖維紋理，參與肌群使用較淡、帶像素抗鋸齒的紋理。人體不接收自身陰影，保留地面與器材陰影，消除表面的不自然條紋。
-- 修正伏地挺身、窄距伏地挺身、硬舉、單臂划船、羅馬尼亞硬舉與滾輪的不可達手部目標；改善折髖伏地肩推及反向划船的足部支撐。
-- 腿推使用獨立固定底座與導軌，支架不再隨整個靠墊一起旋轉到地面下方。站姿鞋底與開掌支撐位置也已調整。
-- 前方機架會依觀看方向淡化，避免胸推、肩推、面拉、三頭下壓與跪姿捲腹被機架擋住。移動握把與發力肌群保持清晰。
-- 單顆啞鈴用於高腳杯深蹲與過頭三頭伸展；夾胸有左右獨立纜線，Pallof 推使用側向纜線；硬舉、反向飛鳥、死蟲、鳥狗等採各自動作軌跡。
+舊模型用手腳端點解兩節骨架，沒有完整限制肩關節、前臂旋轉、肘膝鉸鏈方向及器材接觸。數值有限、肢段長度固定、鏡頭裝得下，都不能證明人體做得出來。先前 3D 截圖檢查和數值測試不能作為動作正確性的證明。
 
-## 驗證範圍
+正式版公開元件現在強制使用中立站姿，不顯示器材動作或合成循環。保留肌群顏色、點選、透視、四視角與放大；預設教學改為作者的實人示範。舊 motionRig 與內部渲染測試暫留供重建參考，尚未通過生物力學驗證，未在正式元件提供開關。尚未完成的是人體關節限制和器材接觸的動作重建，不宣稱已修正全部 47 種合成動畫。
 
-`tests/muscle-viewer.test.mjs` 包含全 50 動作的教學欄位、有限座標、四個預設鏡頭、四種畫面比例與 41 個循環採樣點。實際渲染測試另外檢查起點、收縮頂點、回放中段的人體與器材範圍，以及支撐目標是否可達、關節中心是否穿過地面。材質測試仍驗證主要／協同的顏色與播放／暫停。
+## 來源與查核範圍
 
-以開發用的 `http://127.0.0.1:4180/?review=1` 頁面進行手機 390×844、桌面 1280×900 的逐項畫面檢查；此頁不匯入正式產品。檢查必須等待場景完成至少兩個更新影格，避免擷取到切換前的舊動作。截圖與聯絡表保存在忽略的 `outputs/review-3d/`。
+逐項讀取 NASM 與 Muscle & Strength 的官方目錄、教學步驟與嵌入影片連結；提踵使用 Mayo Clinic 影片及文字。49 個 YouTube／Vimeo 連結的官方 oEmbed 回應均為 HTTP 200；另 1 個連到 Mayo 官方影片頁。這是影片存在性檢查，不能保證所有地區、裝置與未來時間均允許播放。
 
-這仍是純程式生成的人體／關節示意，不代表個人的活動度、受力比例或精密生物力學。動作文字使用本專案原創中文摘要，沒有複製外部影片、模型或圖片。
+另以瀏覽器抽查六類實際影片畫面：上斜啞鈴臥推、槓鈴深蹲、啞鈴羅馬尼亞硬舉、正握下拉、地面派克伏地挺身、前臂平板支撐。沒有聲稱逐幀看完全部 50 支影片，亦未由真人教練審核合成 3D。影片由原平台按需播放，未下載或重製；文字為本專案中文摘要。
 
-## 新增 24 動作
+站內實測：YouTube privacy-enhanced 播放器可載入。Muscle & Strength 的 Vimeo 播放器在本網站會拒絕跨網域內嵌，但在原作者教學頁正常顯示播放器；因此 Vimeo 項目改為開啟對應的原作者教學頁，不顯示失敗的內嵌播放器。循環播放只對站內 YouTube 播放器提供。
 
-| 肌群 | 新動作 |
-|---|---|
-| 胸 | 啞鈴平板臥推、上斜槓鈴臥推、啞鈴平板飛鳥、站姿滑輪夾胸 |
-| 背 | 傳統槓鈴硬舉、窄距對握下拉、滑輪直臂下拉、徒手反向划船 |
-| 腿臀 | 高腳杯深蹲、啞鈴後跨弓箭步、徒手提踵、槓鈴臀推 |
-| 肩 | 站姿啞鈴肩推、啞鈴前平舉、俯身反向飛鳥、坐姿機械肩推 |
-| 手臂 | 窄握臥推、反握槓鈴彎舉、雙手啞鈴過頭三頭伸展、交替啞鈴彎舉 |
-| 核心 | 死蟲式、鳥狗式、懸垂屈膝抬腿、站姿滑輪抗旋轉推 |
+來源若非完全相同變式，會顯示具體差異：單臂划船的凳面支撐、寬／窄距對握划船、壺鈴／啞鈴杯式深蹲、交替槌式彎舉、單手側彎、窄距／菱形伏地挺身、徒手／啞鈴提踵等。派克伏地挺身已改選腳在地面的影片，未沿用腳墊高影片。對握下拉選 V 把影片，不使用正握窄桿影片。
 
-## 查核來源
+## 逐項參考
 
-- [NASM 動作庫](https://www.nasm.org/workout-exercise-guidance)：動作分類、器材與訓練型態。
-- [NASM 上斜啞鈴臥推](https://www.nasm.org/resource-center/exercise-library/two-arm-incline-dumbbell-chest-press)：凳面、肩肘與受控推舉的教學參考。
-- [ACE 平板飛鳥](https://www.acefitness.org/resources/everyone/exercise-library/21/lying-chest-fly/)：微彎手肘、弧線與下放控制。
-- [NASM 核心訓練](https://www.nasm.org/resource-center/blog/training/best-abs-exercises)：死蟲、鳥狗與抗旋轉型動作。
-- [NASM 死蟲式](https://www.nasm.org/resource-center/exercise-library/dead-bug)：對側肢體控制與軀幹穩定。
-- [USDA 熱量換算](https://www.nal.usda.gov/programs/fnic)：蛋白質／碳水 4 kcal/g、脂肪 9 kcal/g，作為手動營養素概算按鈕的依據。
+| 動作 | 教學來源 | 影片 | 版本差異 |
+|---|---|---|---|
+| 槓鈴平板臥推 | [NASM](https://www.nasm.org/resource-center/exercise-library/barbell-bench-press) | [觀看](https://www.youtube.com/watch?v=CayG6UYqL8g) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 上斜啞鈴臥推 | [NASM](https://www.nasm.org/resource-center/exercise-library/two-arm-incline-dumbbell-chest-press) | [觀看](https://www.youtube.com/watch?v=JKnpHchOWPU) | 影片採約 45° 上斜；先以能穩住上背、肩部舒服的角度練習，調整凳角時重新減重。 |
+| 坐姿機械胸推 | [NASM](https://www.nasm.org/resource-center/exercise-library/chest-press-machine) | [觀看](https://www.youtube.com/watch?v=lRo9zZ7EwpM) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 伏地挺身 | [NASM](https://www.nasm.org/resource-center/exercise-library/push-up) | [觀看](https://www.youtube.com/watch?v=WDIpL0pjun0) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 槓鈴俯身划船 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/bent-over-barbell-row.html) | [觀看](https://www.youtube.com/watch?v=paCfxhgW6bI) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 單臂啞鈴划船 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/one-arm-dumbbell-row.html) | [觀看](https://www.youtube.com/watch?v=YZgVEy6cmaY) | 來源影片為站姿單臂划船；本頁採另一手與同側膝支撐平凳的版本。支撐方式不同，不要把影片的懸空手姿勢套到凳上。 |
+| 滑輪高位下拉 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/lat-pull-down.html) | [觀看](https://www.youtube.com/watch?v=iKrKgWR9wbY) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 正握引體向上 | [NASM](https://www.nasm.org/resource-center/exercise-library/pull-up) | [觀看](https://www.youtube.com/watch?v=9yVGh3XbJ34) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 槓鈴背蹲 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/squat.html) | [觀看](https://www.youtube.com/watch?v=R2dMsNhN3DE) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 啞鈴羅馬尼亞硬舉 | [NASM](https://www.nasm.org/resource-center/exercise-library/dumbbell-romanian-deadlift) | [觀看](https://www.youtube.com/watch?v=V8Hdl1FiNt4) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 機械腿推 | [NASM](https://www.nasm.org/resource-center/exercise-library/leg-press) | [觀看](https://www.youtube.com/watch?v=cDGOn-yfKJA) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 徒手臀橋 | [NASM](https://www.nasm.org/resource-center/exercise-library/floor-bridge) | [觀看](https://www.youtube.com/watch?v=Z3cY3d3BBo4) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 站姿槓鈴肩推 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/military-press.html) | [觀看](https://www.youtube.com/watch?v=j7ULT6dznNc) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 啞鈴側平舉 | [NASM](https://www.youtube.com/watch?v=XPPfnSEATJA) | [觀看](https://www.youtube.com/watch?v=XPPfnSEATJA) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 滑輪繩索面拉 | [NASM](https://www.nasm.org/resource-center/exercise-library/face-pull) | [觀看](https://www.youtube.com/watch?v=eTCBSFlCJ_s) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 折髖伏地肩推 | [NASM](https://www.youtube.com/watch?v=XckEEwa1BPI) | [觀看](https://www.youtube.com/watch?v=XckEEwa1BPI) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 槓鈴二頭彎舉 | [NASM](https://www.nasm.org/resource-center/exercise-library/barbell-bicep-curl) | [觀看](https://www.youtube.com/watch?v=pQfJR-sSIvA) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 啞鈴槌式彎舉 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/alternate-standing-hammer-curl.html) | [觀看](https://player.vimeo.com/video/756794147) | 影片採左右交替；保持掌心相對。每側做相同次數，一側完成回放後再換側。 |
+| 滑輪三頭下壓 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/tricep-extension.html) | [觀看](https://www.youtube.com/watch?v=mpZ9VRisAyw) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 窄距伏地挺身 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/close-grip-push-up.html) | [觀看](https://player.vimeo.com/video/756784503?h=8b3ba1decc) | 來源為窄距伏地挺身；手掌可接近菱形，但不必強迫拇指與食指相碰。手腕舒服、手肘不外翻優先。 |
+| 跪姿槓鈴滾輪 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/abdominal-barbell-rollouts.html) | [觀看](https://player.vimeo.com/video/877885260) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 單側啞鈴側屈 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/dumbbell-side-bends.html) | [觀看](https://player.vimeo.com/video/877885243) | 本頁採單手持鈴；影片示範可見雙手持鈴。練習時只保留一側負重，骨盆固定，小幅側彎後回到直立。 |
+| 跪姿滑輪捲腹 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/cable-crunch.html) | [觀看](https://player.vimeo.com/video/760008287) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 前臂棒式 | [NASM](https://www.nasm.org/resource-center/exercise-library/plank) | [觀看](https://www.youtube.com/watch?v=mwlp75MS6Rg) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 反手高位下拉 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/reverse-grip-lat-pull-down.html) | [觀看](https://www.youtube.com/watch?v=8DAFwftgZHQ) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 坐姿寬距對握划船 | [NASM](https://www.nasm.org/resource-center/exercise-library/seated-machine-row-close-grip) | [觀看](https://www.youtube.com/watch?v=k0cTJCfxa0Y) | 來源為窄距對握划船；本頁為寬距對握。握把較寬時手肘往斜後方移動，終點以肩部舒服為準，不強拉到身後。 |
+| 啞鈴平板臥推 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/dumbbell-bench-press.html) | [觀看](https://www.youtube.com/watch?v=dGqI0Z5ul4k) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 上斜槓鈴臥推 | [NASM](https://www.nasm.org/resource-center/exercise-library/incline-barbell-bench-press) | [觀看](https://www.youtube.com/watch?v=BjGLs6KGWUc) | 影片採約 45° 上斜；槓下放至上胸前方。先設好安全槓，再開始出槓。 |
+| 啞鈴平板飛鳥 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/dumbbell-flys.html) | [觀看](https://www.youtube.com/watch?v=-lcbvOddoi8) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 站姿滑輪夾胸 | [NASM](https://www.nasm.org/resource-center/exercise-library) | [觀看](https://www.youtube.com/watch?v=XNf6TBErGys) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 傳統槓鈴硬舉 | [NASM](https://www.nasm.org/resource-center/exercise-library/barbell-deadlift) | [觀看](https://www.youtube.com/watch?v=Z6gcRfPNcZo) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 窄距對握高位下拉 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/v-bar-pull-down) | [觀看](https://www.youtube.com/watch?v=7wEpfpKAiQ0) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 滑輪直臂下拉 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/straight-arm-lat-pull-down.html) | [觀看](https://www.youtube.com/watch?v=gDtXrJWPdlY) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 徒手反向划船 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/high-inverted-row.html) | [觀看](https://player.vimeo.com/video/756788811?h=89d69b02a9) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 啞鈴高腳杯深蹲 | [NASM](https://www.nasm.org/resource-center/exercise-library/goblet-squat) | [觀看](https://www.youtube.com/watch?v=nfX7IFK9UNI) | 來源示範可能使用壺鈴；本頁用一顆啞鈴，雙手托住上端，保持重量貼近胸前。 |
+| 啞鈴後跨弓箭步 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/dumbbell-rear-lunge.html) | [觀看](https://www.youtube.com/watch?v=Ix9QZ3Pnneo) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 站姿徒手提踵 | [Mayo Clinic](https://www.mayoclinic.org/healthy-lifestyle/fitness/multimedia/calf-raise/vid-20084681) | [觀看](https://www.mayoclinic.org/healthy-lifestyle/fitness/multimedia/calf-raise/vid-20084681) | 來源為啞鈴提踵影片。本頁先做徒手、腳跟落到平地的版本；省略啞鈴，需要時扶固定物，不直接照做額外負重。 |
+| 槓鈴臀推 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/barbell-hip-thrust) | [觀看](https://www.youtube.com/watch?v=lAnqN0J_p5A) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 站姿啞鈴肩推 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/standing-dumbbell-press.html) | [觀看](https://player.vimeo.com/video/760002177) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 啞鈴前平舉 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/dumbbell-front-raise.html) | [觀看](https://player.vimeo.com/video/760002236) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 俯身啞鈴反向飛鳥 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/bent-over-dumbbell-reverse-fly.html) | [觀看](https://www.youtube.com/watch?v=Fgz_FdzDukE) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 坐姿機械肩推 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/machine-shoulder-press) | [觀看](https://www.youtube.com/watch?v=fj_VAk1jfZ8) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 窄握槓鈴臥推 | [NASM](https://www.nasm.org/resource-center/exercise-library/close-grip-bench-press) | [觀看](https://www.youtube.com/watch?v=LJeqLAmJLfs) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 反握槓鈴彎舉 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/reverse-barbell-curl.html) | [觀看](https://player.vimeo.com/video/760002600) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 雙手啞鈴過頭三頭伸展 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/two-arm-standing-dumbbell-extension.html) | [觀看](https://www.youtube.com/watch?v=VjmgzEmODnI) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 交替啞鈴彎舉 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/alternating-standing-dumbbell-curl.html) | [觀看](https://player.vimeo.com/video/756794096) | 影片起始掌心已向前；也可由中立握逐漸旋至掌心向上。一次只動一側，另一側保持穩定。 |
+| 死蟲式 | [NASM](https://www.nasm.org/resource-center/exercise-library/dead-bug) | [觀看](https://www.youtube.com/watch?v=bxn9FBrt4-A) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 鳥狗式 | [NASM](https://www.nasm.org/resource-center/exercise-library/bird-dog) | [觀看](https://www.youtube.com/watch?v=ZdAHe9_HeEw) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 懸垂屈膝抬腿 | [Muscle & Strength](https://www.muscleandstrength.com/exercises/hanging-knee-raise.html) | [觀看](https://player.vimeo.com/video/1082967622) | 依頁面列出的器材與姿勢檢查點練習。 |
+| 站姿滑輪抗旋轉推 | [NASM](https://www.youtube.com/watch?v=f3R99GoYvCs) | [觀看](https://www.youtube.com/watch?v=f3R99GoYvCs) | 依頁面列出的器材與姿勢檢查點練習。 |
 
-## 熱量邏輯
+## 食物與熱量
 
-每日目標仍使用伺服器端 Mifflin-St Jeor → 活動係數 → 目標係數。食物捷徑依份量等比例帶入 kcal 與 P/C/F；自訂餐點可使用包裝標示，或按鈕選擇 4/4/9 概算。概算不會自動覆蓋標示熱量，也不會從飲食攝取扣除估計重訓消耗。介面新增可展開的說明，以免把每日消耗目標與當日飲食加總混為一談。
+大／小乞丐超人由使用者提供熱量及蛋白質。蛋餅採國健署《健康生活動起來手冊》原味 117 g 的表列值：261 kcal、P11／C34／F9。拿鐵採台灣麥當勞金選熱那堤約 12 oz：123.7 kcal（記錄取124）、P6.4／C9.9／F6.5。兩者實際油量、奶量、醬料、加糖及份量有變動時需修改。連結存於 foodsData。未知碳水與脂肪用 null 回傳，以 ≥ 顯示只加總已知值；不從蛋白質與熱量反推另外兩項。

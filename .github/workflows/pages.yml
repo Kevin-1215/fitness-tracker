@@ -24,7 +24,7 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run check
-      - run: pnpm test && pnpm run test:dashboard && pnpm run test:cors && pnpm run test:muscles
+      - run: pnpm test && pnpm run test:dashboard && pnpm run test:cors && pnpm run test:muscles && pnpm run test:guides
       - name: Build GitHub Pages frontend
         run: |
           test -n "$VITE_API_ORIGIN" || { echo "Set repository variable VITE_API_ORIGIN first"; exit 1; }

@@ -1,10 +1,10 @@
 'use client';
 
-import { Component, memo, useCallback, useEffect, useId, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
+import { Component, memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
-import { Eye, Layers3, Maximize2, Minimize2, Pause, Play, RotateCcw, Rotate3d, ScanLine } from "lucide-react";
+import { Layers3, Maximize2, Minimize2, RotateCcw, Rotate3d } from "lucide-react";
 import { Group, MeshPhysicalMaterial, Quaternion, Vector3 } from "three";
 import { expandMuscles, MUSCLE_LABELS, type AnatomicalMuscle, type AnimationType, type Equipment, type MuscleId } from "../lib/exercisesData";
 import { FOREARM, HIP_X, SHIN, SHOULDER_X, SHOULDER_Y, THIGH, UPPER_ARM, sampleExercisePose, solvePose, type LimbSolution, type V3 } from "../lib/motionRig";
@@ -201,95 +201,43 @@ function defaultEquipment(type: AnimationType): Equipment {
   return "徒手";
 }
 
-export default function MuscleViewer3D({ primaryMuscles = EMPTY, secondaryMuscles = EMPTY, animationType = "press_horizontal", equipment, exerciseName = "肌群與動作示範", isPlayingAnimation, defaultPlayingAnimation = false, onPlayingAnimationChange, cycleDuration = 5, height = 660, className = "" }: MuscleViewer3DProps) {
-  const [internalPlaying, setInternalPlaying] = useState(defaultPlayingAnimation), playing = isPlayingAnimation ?? internalPlaying;
-  const [anatomy, setAnatomy] = useState(false), [xray, setXray] = useState(false), [selected, setSelected] = useState<AnatomicalMuscle | null>(null);
-  const [view, setView] = useState<{ name: View; revision: number }>({ name: "auto", revision: 0 });
-  const [frame, setFrame] = useState<PlaybackFrame>({ progress: .15, repetition: 1, phase: "向心發力" }), [seek, setSeek] = useState<Seek | undefined>();
-  const [speed, setSpeed] = useState(1), [mounted, setMounted] = useState(false), [visible, setVisible] = useState(true), [reducedMotion, setReducedMotion] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const [renderedScene,setRenderedScene]=useState("");
-  const previousAnimation = useRef(animationType), container = useRef<HTMLElement>(null);
-  const speedId = useId();
-  const primary = expandMuscles(primaryMuscles), secondary = [...expandMuscles(secondaryMuscles)].filter((id) => !primary.has(id));
-  const focused = selected ?? [...primary][0] ?? null, detail = focused ? MUSCLE_DETAILS[focused] : null;
-  const controllable = isPlayingAnimation === undefined || !!onPlayingAnimationChange;
-  const activeEquipment = equipment ?? defaultEquipment(animationType), nameParts = exerciseName.split(" (");
-  const sceneKey=`${exerciseName}|${animationType}|${activeEquipment}|${anatomy}|${view.name}:${view.revision}|${seek?.revision??0}`;
-  const activeView = view.name === "auto" ? BACK_MOVEMENTS.includes(animationType) ? "back" : "reset" : view.name;
-  const updateFrame = useCallback((next: PlaybackFrame) => setFrame(next), []);
-  const chooseMuscle = useCallback((muscle: AnatomicalMuscle) => setSelected((last) => last === muscle ? null : muscle), []);
-  useEffect(() => {
-    setMounted(true);
-    const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const motion = () => setReducedMotion(query.matches), visibility = () => setVisible(!document.hidden);
-    motion(); visibility(); query.addEventListener("change", motion); document.addEventListener("visibilitychange", visibility);
-    return () => { query.removeEventListener("change", motion); document.removeEventListener("visibilitychange", visibility); };
-  }, []);
-  useEffect(() => {
-    if (!expanded) return;
-    const previousOverflow = document.body.style.overflow;
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    document.body.style.overflow = "hidden";
-    container.current?.querySelector<HTMLButtonElement>("[data-expand-button]")?.focus();
-    const keyboard = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { event.preventDefault(); setExpanded(false); }
-      if (event.key !== "Tab") return;
-      const items = [...(container.current?.querySelectorAll<HTMLElement>("button:not(:disabled),input:not(:disabled),select:not(:disabled),[tabindex='0']") ?? [])];
-      if (!items.length) return;
-      if (event.shiftKey && document.activeElement === items[0]) { event.preventDefault(); items.at(-1)?.focus(); }
-      else if (!event.shiftKey && document.activeElement === items.at(-1)) { event.preventDefault(); items[0].focus(); }
-    };
-    document.addEventListener("keydown", keyboard);
-    return () => { document.body.style.overflow = previousOverflow; document.removeEventListener("keydown", keyboard); previousFocus?.focus(); };
-  }, [expanded]);
-  useEffect(() => { if (previousAnimation.current !== animationType) { previousAnimation.current = animationType; setAnatomy(false); setSelected(null); setSeek(undefined); setView({ name: "auto", revision: 0 }); } }, [animationType]);
-  function setPlaying(next: boolean) { if (isPlayingAnimation === undefined) setInternalPlaying(next); onPlayingAnimationChange?.(next); }
-  const scrub = (value: number) => { if (controllable) setPlaying(false); setAnatomy(false); setSeek((last) => ({ value, revision: (last?.revision ?? 0) + 1 })); setFrame((last) => ({ ...last, progress: value })); };
-  const cycle = (Number.isFinite(cycleDuration) ? Math.max(2, Math.min(12, cycleDuration)) : 5) / speed;
-  return <section ref={container} data-scene-ready={renderedScene===sceneKey} className={`mv3d ${expanded ? "is-expanded" : ""} ${className}`} role={expanded ? "dialog" : undefined} aria-modal={expanded ? true : undefined} aria-label={`${exerciseName}：互動 3D 人體`}>
-    <style>{VIEWER_STYLES}</style>
-    <header className="mv3d-header"><div className="mv3d-title"><span className="mv3d-kicker">INTERACTIVE ANATOMY</span><h3>{nameParts[0]}</h3>{nameParts[1] && <p>{nameParts[1].replace(/\)$/, "")}</p>}</div>
-      <div className="mv3d-stage-tools"><button type="button" aria-label="切換肌群透視" aria-pressed={xray} onClick={() => setXray((last) => !last)} title="肌群透視"><Layers3 size={17} /></button>
-        <button type="button" data-expand-button aria-label={expanded ? "關閉放大檢視" : "放大檢視"} aria-pressed={expanded} onClick={() => setExpanded((last) => !last)} title={expanded ? "關閉放大檢視" : "放大檢視"}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button></div></header>
-    <div className="mv3d-stage" style={{ height: Number.isFinite(height) ? Math.max(480,height) : 660 }}>
-      <CanvasBoundary>{mounted ? <Canvas shadows="percentage" dpr={[1,1.5]} camera={{ position: [0,1.6,-5.2], fov: 37, near: .1, far: 80 }}
-        frameloop={visible && (playing || !reducedMotion && primary.size > 0) ? "always" : "demand"} gl={{ antialias: true, alpha: false }}
-        onPointerMissed={() => setSelected(null)} fallback={<p className="mv3d-fallback">此裝置無法顯示 WebGL 3D。</p>}>
-        <color attach="background" args={["#11191d"]} /><fog attach="fog" args={["#11191d",12,36]} />
-        <ambientLight intensity={.35} /><hemisphereLight args={["#d7e2e9","#243037",.6]} />
-        <directionalLight position={[-3,5,-4]} intensity={2.4} color="#e5eff8" castShadow shadow-mapSize={[1024,1024]} shadow-bias={-.0004} shadow-normalBias={.025} />
-        <directionalLight position={[4,3,3]} intensity={1.7} color="#ffefd9" />
-        <spotLight position={[0,4,-3]} intensity={16} angle={.7} penumbra={1} color="#c5e7fc" />
-        <Environment resolution={128} frames={1}>
-          <Lightformer form="rect" intensity={2} position={[-3,3,-4]} scale={[4,5,1]} rotation={[0,Math.PI/4,0]} />
-          <Lightformer form="rect" intensity={1.5} position={[4,2,3]} scale={[3,4,1]} rotation={[0,-Math.PI/2,0]} />
-        </Environment>
-        <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.002,0]} receiveShadow><planeGeometry args={[50,50]} /><meshStandardMaterial color="#172025" roughness={.85} metalness={.12} /></mesh>
-        <ProceduralHuman primaryMuscles={primaryMuscles} secondaryMuscles={secondaryMuscles} animationType={animationType} equipment={activeEquipment}
-          playing={playing && visible} anatomy={anatomy} cycleDuration={cycle} pulse={!reducedMotion && visible} xray={xray} selected={selected} onSelect={chooseMuscle} seek={seek} onPlayback={updateFrame} />
-        <CameraRig view={view.name} revision={view.revision} anatomy={anatomy} animationType={animationType} equipment={activeEquipment} />
-        <SceneReady sceneKey={sceneKey} onReady={setRenderedScene}/>
-        <EffectComposer multisampling={2} enableNormalPass={false}><Bloom mipmapBlur intensity={.58} luminanceThreshold={1.15} luminanceSmoothing={.3} /><Vignette offset={.15} darkness={.45} /></EffectComposer>
-      </Canvas> : <p className="mv3d-fallback" role="status">載入 3D 人體…</p>}</CanvasBoundary>
-    </div>
-    <div className="mv3d-camera-controls">
-      <div className="mv3d-views" role="group" aria-label="人體視角">{([ ["front","正面"], ["side","側面"], ["back","背面"], ["reset","重置"] ] as const).map(([name,label]) =>
-        <button type="button" key={name} aria-label={name === "reset" ? "重置視角" : label} aria-pressed={activeView === name} onClick={() => setView((last) => ({ name, revision:last.revision+1 }))}>{name === "reset" ? <RotateCcw size={14} /> : null}{label}</button>)}</div>
-      <div className="mv3d-mode-switch"><button type="button" aria-pressed={!anatomy} onClick={() => setAnatomy(false)}><ScanLine size={14} />動作示範</button><button type="button" aria-pressed={anatomy} onClick={() => { setAnatomy(true); if (controllable) setPlaying(false); }}><Eye size={14} />肌群總覽</button></div>
-    </div><div className="mv3d-floor-label"><Rotate3d size={15} /><span>拖曳旋轉 · 點選肌群 · 雙指縮放；重置可看完整動作</span></div>
-    <div className="mv3d-playback">
-      <div className="mv3d-playback-top"><button type="button" className="mv3d-play" disabled={!controllable} aria-label={playing && !anatomy ? "暫停 3D 動作示範" : "播放 3D 動作示範"} aria-pressed={playing && !anatomy}
-        onClick={() => { setAnatomy(false); setPlaying(anatomy || !playing); }} title={!controllable ? "請提供 onPlayingAnimationChange 以控制播放" : undefined}>{playing && !anatomy ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" />}</button>
-        <div className="mv3d-playback-status"><strong role="status">{anatomy ? "肌群總覽" : frame.phase}</strong><span>{anatomy ? "點選人體，探索肌群" : `第 ${String(frame.repetition).padStart(2,"0")} 次示範`}</span></div>
-        <div className="mv3d-speed"><label htmlFor={speedId}>播放速度</label><select id={speedId} aria-label="播放速度" value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>{[.5,.75,1,1.5].map((value) => <option key={value} value={value}>{value}×</option>)}</select></div>
-      </div>
-      <input type="range" aria-label="動作進度" min={0} max={100} step={.1} value={frame.progress*100} onChange={(event) => scrub(Number(event.target.value)/100)} disabled={!controllable} />
-      <div className="mv3d-timeline-labels"><span>拖曳進度，逐格觀察動作</span><span>{Math.round(frame.progress*100)}%</span></div>
-    </div>
-    <div className="mv3d-muscle-list"><div className="mv3d-muscle-group"><span><i className="primary" />主要發力</span><div>{[...primary].map((id) => <button type="button" key={id} aria-pressed={selected===id} onClick={() => chooseMuscle(id)}>{MUSCLE_LABELS[id]}</button>)}</div></div>
-      <div className="mv3d-muscle-group"><span><i className="secondary" />協同肌群</span><div>{secondary.length ? secondary.map((id) => <button type="button" key={id} aria-pressed={selected===id} onClick={() => chooseMuscle(id)}>{MUSCLE_LABELS[id]}</button>) : <small>此動作未另列協同肌群</small>}</div></div></div>
-    {detail && focused && <div className="mv3d-focus"><span>{selected ? "已選肌群" : "主要發力肌群"}</span><strong>{MUSCLE_LABELS[focused]}<small>{detail.english}</small></strong>{selected&&<p>{detail.function}</p>}</div>}
-    <p className="mv3d-note">顏色標示肌群角色，不代表出力百分比。{["side_bend","row_single"].includes(animationType) && "單側動作請記得換邊。"}</p>
+/** The old IK motion is withheld: reaching a target is not proof of a valid
+ * human joint trajectory. Public rendering always uses the neutral anatomy pose,
+ * including when a legacy caller passes isPlayingAnimation=true. */
+export const PUBLIC_VIEWER_MODE = 'anatomy-only' as const;
+export default function MuscleViewer3D({ primaryMuscles = EMPTY, secondaryMuscles = EMPTY, animationType = "press_horizontal", equipment, exerciseName = "互動肌群總覽", height = 660, className = "" }: MuscleViewer3DProps) {
+  const [xray,setXray]=useState(false),[selected,setSelected]=useState<AnatomicalMuscle|null>(null);
+  const [view,setView]=useState<{name:View;revision:number}>({name:"auto",revision:0});
+  const [mounted,setMounted]=useState(false),[visible,setVisible]=useState(true),[reducedMotion,setReducedMotion]=useState(false),[expanded,setExpanded]=useState(false),[renderedScene,setRenderedScene]=useState("");
+  const container=useRef<HTMLElement>(null),primary=expandMuscles(primaryMuscles),secondary=[...expandMuscles(secondaryMuscles)].filter(id=>!primary.has(id));
+  const focused=selected??[...primary][0]??null,detail=focused?MUSCLE_DETAILS[focused]:null;
+  const activeEquipment=equipment??defaultEquipment(animationType),nameParts=exerciseName.split(" (");
+  const sceneKey=exerciseName+"|anatomy|"+view.name+":"+view.revision;
+  const activeView=view.name==="auto"?BACK_MOVEMENTS.includes(animationType)?"back":"reset":view.name;
+  const chooseMuscle=useCallback((muscle:AnatomicalMuscle)=>setSelected(last=>last===muscle?null:muscle),[]);
+  useEffect(()=>{setMounted(true);const query=window.matchMedia("(prefers-reduced-motion: reduce)");const motion=()=>setReducedMotion(query.matches),visibility=()=>setVisible(!document.hidden);motion();visibility();query.addEventListener("change",motion);document.addEventListener("visibilitychange",visibility);return()=>{query.removeEventListener("change",motion);document.removeEventListener("visibilitychange",visibility);};},[]);
+  useEffect(()=>{setSelected(null);setView({name:"auto",revision:0});},[exerciseName]);
+  useEffect(()=>{
+    if(!expanded)return;const previousOverflow=document.body.style.overflow,previousFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    document.body.style.overflow="hidden";container.current?.querySelector<HTMLButtonElement>("[data-expand-button]")?.focus();
+    const keyboard=(event:KeyboardEvent)=>{if(event.key==="Escape"){event.preventDefault();event.stopPropagation();setExpanded(false);}if(event.key!=="Tab")return;const items=[...(container.current?.querySelectorAll<HTMLElement>("button:not(:disabled),input:not(:disabled),select:not(:disabled),[tabindex='0']")??[])];if(!items.length)return;if(event.shiftKey&&document.activeElement===items[0]){event.preventDefault();items.at(-1)?.focus();}else if(!event.shiftKey&&document.activeElement===items.at(-1)){event.preventDefault();items[0].focus();}};
+    document.addEventListener("keydown",keyboard,true);return()=>{document.body.style.overflow=previousOverflow;document.removeEventListener("keydown",keyboard,true);previousFocus?.focus();};
+  },[expanded]);
+  return <section ref={container} data-scene-ready={renderedScene===sceneKey} data-mode="anatomy" data-motion-enabled="false" className={"mv3d "+(expanded?"is-expanded ":"")+className} role={expanded?"dialog":undefined} aria-modal={expanded?true:undefined} aria-label={exerciseName+"：互動 3D 肌群"}>
+    <style>{VIEWER_STYLES}</style><header className="mv3d-header"><div className="mv3d-title"><span className="mv3d-kicker">INTERACTIVE ANATOMY</span><h3>{nameParts[0]}</h3>{nameParts[1]&&<p>{nameParts[1].replace(/\)$/,"")}</p>}</div><div className="mv3d-stage-tools"><button type="button" aria-label="切換肌群透視" aria-pressed={xray} onClick={()=>setXray(last=>!last)}><Layers3 size={17}/></button><button type="button" data-expand-button aria-label={expanded?"關閉放大檢視":"放大檢視"} aria-pressed={expanded} onClick={()=>setExpanded(last=>!last)}>{expanded?<Minimize2 size={17}/>:<Maximize2 size={17}/>}</button></div></header>
+    <div className="mv3d-stage" style={{height:Number.isFinite(height)?Math.max(480,height):660}}><CanvasBoundary>{mounted?<Canvas shadows="percentage" dpr={[1,1.5]} camera={{position:[0,1.6,-5.2],fov:37,near:.1,far:80}} frameloop={visible&&!reducedMotion&&primary.size>0?"always":"demand"} gl={{antialias:true,alpha:false}} onPointerMissed={()=>setSelected(null)} fallback={<p className="mv3d-fallback">此裝置無法顯示 WebGL 3D，仍可觀看影片與中文步驟。</p>}>
+      <color attach="background" args={["#11191d"]}/><fog attach="fog" args={["#11191d",12,36]}/><ambientLight intensity={.35}/><hemisphereLight args={["#d7e2e9","#243037",.6]}/>
+      <directionalLight position={[-3,5,-4]} intensity={2.4} color="#e5eff8" castShadow shadow-mapSize={[1024,1024]} shadow-bias={-.0004} shadow-normalBias={.025}/><directionalLight position={[4,3,3]} intensity={1.7} color="#ffefd9"/><spotLight position={[0,4,-3]} intensity={16} angle={.7} penumbra={1} color="#c5e7fc"/>
+      <Environment resolution={128} frames={1}><Lightformer form="rect" intensity={2} position={[-3,3,-4]} scale={[4,5,1]} rotation={[0,Math.PI/4,0]}/><Lightformer form="rect" intensity={1.5} position={[4,2,3]} scale={[3,4,1]} rotation={[0,-Math.PI/2,0]}/></Environment>
+      <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.002,0]} receiveShadow><planeGeometry args={[50,50]}/><meshStandardMaterial color="#172025" roughness={.85} metalness={.12}/></mesh>
+      <ProceduralHuman primaryMuscles={primaryMuscles} secondaryMuscles={secondaryMuscles} animationType={animationType} equipment={activeEquipment} playing={false} anatomy={true} cycleDuration={5} pulse={!reducedMotion&&visible} xray={xray} selected={selected} onSelect={chooseMuscle}/>
+      <CameraRig view={view.name} revision={view.revision} anatomy={true} animationType={animationType} equipment={activeEquipment}/><SceneReady sceneKey={sceneKey} onReady={setRenderedScene}/>
+      <EffectComposer multisampling={2} enableNormalPass={false}><Bloom mipmapBlur intensity={.58} luminanceThreshold={1.15} luminanceSmoothing={.3}/><Vignette offset={.15} darkness={.45}/></EffectComposer>
+    </Canvas>:<p className="mv3d-fallback" role="status">載入 3D 肌群…</p>}</CanvasBoundary></div>
+    <div className="mv3d-camera-controls"><div className="mv3d-views" role="group" aria-label="人體視角">{([["front","正面"],["side","側面"],["back","背面"],["reset","重置"]] as const).map(([name,label])=><button type="button" key={name} aria-label={name==="reset"?"重置視角":label} aria-pressed={activeView===name} onClick={()=>setView(last=>({name,revision:last.revision+1}))}>{name==="reset"?<RotateCcw size={14}/>:null}{label}</button>)}</div></div>
+    <div className="mv3d-floor-label"><Rotate3d size={15}/><span>拖曳旋轉 · 點選肌群 · 雙指縮放</span></div>
+    <div className="mv3d-muscle-list"><div className="mv3d-muscle-group"><span><i className="primary"/>主要發力</span><div>{[...primary].map(id=><button type="button" key={id} aria-pressed={selected===id} onClick={()=>chooseMuscle(id)}>{MUSCLE_LABELS[id]}</button>)}</div></div><div className="mv3d-muscle-group"><span><i className="secondary"/>協同肌群</span><div>{secondary.length?secondary.map(id=><button type="button" key={id} aria-pressed={selected===id} onClick={()=>chooseMuscle(id)}>{MUSCLE_LABELS[id]}</button>):<small>未另列協同肌群</small>}</div></div></div>
+    {detail&&focused&&<div className="mv3d-focus"><span>{selected?"已選肌群":"主要發力肌群"}</span><strong>{MUSCLE_LABELS[focused]}<small>{detail.english}</small></strong>{selected&&<p>{detail.function}</p>}</div>}
+    <p className="mv3d-note">此為中立站姿的肌群位置示意，顏色不代表出力百分比。舊版動作動畫已停用；實際姿勢、器材與軌跡請切換「實人動作示範」。</p>
   </section>;
 }

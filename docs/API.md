@@ -41,7 +41,7 @@ Mifflin-St Jeor 成人簡化式：`BMR = 10×kg + 6.25×cm − 5×age + (male:5 
 {"log_date":"2026-11-26","meal_type":"lunch","food_name":"雞胸肉（熟）100 g","calories":165,"protein_g":31,"carbs_g":0,"fat_g":3.6}
 ```
 
-meal_type 為 breakfast／lunch／dinner／snack；名稱最多 120 字元；熱量 0–10000 整數，三大營養素各 0–1000 g。加總最後才四捨五入至一位小數。20 種捷徑標明份量，數值為可編輯的估算，並非外部食品資料庫查詢。
+meal_type 為 breakfast／lunch／dinner／snack；名稱最多 120 字元；熱量 0–10000 整數，蛋白質必填、0–1000 g；碳水與脂肪可填 0–1000 g 或顯式 null（未知），缺少欄位仍回 400。加總最後才四捨五入至一位小數。24 種捷徑標明份量與已查核來源；自訂食物的未知營養素不填假值。totals 新增 carbs_unknown_count、fat_unknown_count，總量只加已知值，UI 有缺值時顯示 ≥。資料庫保留原本非負數欄位，用 carbs_known／fat_known 旗標區分未知與實際 0，API 一律將未知回傳 null。先對現有庫執行 migrations/0002_partial_nutrition.sql，再部署新版 API。
 
 前端另提供「依營養素估算熱量」按鈕，計算 `round(4×protein_g + 4×carbs_g + 9×fat_g)`。只有使用者按下時才帶入，不覆蓋包裝標示，也不視為食品資料庫查詢。詳細邏輯可在飲食頁「每日目標與飲食熱量，怎麼算？」展開查看。
 
