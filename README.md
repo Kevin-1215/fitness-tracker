@@ -1,15 +1,17 @@
 # FORM｜重訓與飲食熱量追蹤
 
-已完成會員註冊／登入、D1 個人設定與訓練／飲食 API、26 個動作百科、互動 3D 教學，以及完整的響應式儀表板。依本次指定，正式版使用 GitHub Pages 前端＋Cloudflare Worker API，D1 為唯一資料庫；也保留整站部署 Cloudflare Pages 的設定。
+已完成會員註冊／登入、D1 個人設定與訓練／飲食 API、50 個動作百科、互動 3D 教學，以及完整的響應式儀表板。依本次指定，正式版使用 GitHub Pages 前端＋Cloudflare Worker API，D1 為唯一資料庫；也保留整站部署 Cloudflare Pages 的設定。
 
 - [儀表板與 API 欄位、公式及資料隔離](docs/API.md)
 - [GitHub Pages＋Cloudflare API 部署、CORS 與跨站 Cookie](docs/GITHUB-PAGES.md)
 
 `app/dashboard/page.tsx` 是 React 頁面入口，由 `src/main.tsx` 載入。`components/dashboard/` 包含會員畫面、動作庫與組數、休息計時器、身體設定與飲食表單；`components/ExerciseDetailModal.tsx` 整合放大版 3D 與四步教學。正式版不依賴外部模型或食品 API。
 
+新版檢查與新增內容見 [3D 檢查紀錄](docs/EXERCISE-REVIEW.md)。
+
 ## Task 2：動作百科與 3D 人體
 
-入口為 `lib/exercisesData.ts`、`components/MuscleViewer3D.tsx`，並使用 `lib/motionRig.ts` 與 `components/anatomy/` 的曲面、材質、器械和樣式模組。整合時請一併複製這些模組。六大分類至少各四個動作，每一分類皆有四種器材；另外新增參考圖中的反手高位下拉與坐姿寬距對握划船，總共 26 個。每個動作都有中英名稱、主要／協同肌群、難度、動畫模式、四步教學、呼吸與常見錯誤。
+入口為 `lib/exercisesData.ts`、`components/MuscleViewer3D.tsx`，並使用 `lib/motionRig.ts` 與 `components/anatomy/` 的曲面、材質、器械和樣式模組。整合時請一併複製這些模組。六大分類至少各四個動作，每一分類皆有四種器材；包含參考圖中的反手高位下拉與坐姿寬距對握划船；本次另新增 24 個動作，總共 50 個。每個動作都有中英名稱、主要／協同肌群、難度、動畫模式、四步教學、呼吸與常見錯誤。
 
 元件保留 `'use client'`，可在 React + Vite 或 Next.js 使用；所有幾何、肌群紋理與環境照明皆由程式產生，不下載外部 GLB、貼圖、HDR、字型或 API 資料。新版以連續截面曲線建立實體軀幹、四肢與頸部，肌群貼面順著身體表面延伸，Shader 表現肌纖維紋路，並使用 Bloom、柔光環境與地面陰影。滑輪機有機架、配重片、座墊、握桿與跟隨動作的纜線；其他動作使用對應的槓鈴、啞鈴、凳面或踏板。
 

@@ -7,15 +7,21 @@ import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
 import { Eye, Layers3, Maximize2, Minimize2, Pause, Play, RotateCcw, Rotate3d, ScanLine } from "lucide-react";
 import { Group, MeshPhysicalMaterial, Quaternion, Vector3 } from "three";
 import { expandMuscles, MUSCLE_LABELS, type AnatomicalMuscle, type AnimationType, type Equipment, type MuscleId } from "../lib/exercisesData";
-import { FOREARM, HIP_X, SHIN, SHOULDER_X, SHOULDER_Y, THIGH, UPPER_ARM, sampleExercisePose, solveTwoBone, type V3 } from "../lib/motionRig";
+import { FOREARM, HIP_X, SHIN, SHOULDER_X, SHOULDER_Y, THIGH, UPPER_ARM, sampleExercisePose, solvePose, type LimbSolution, type V3 } from "../lib/motionRig";
+import {BACK_MOVEMENTS,SINGLE_DUMBBELL,fitCamera,motionEnvelope} from "../lib/sceneFraming";
 import { createMuscleMaterial, Hand, Head, LimbSurface, TorsoSurface, type MuscleMaterials } from "./anatomy/AnatomicalBody";
 import { Dumbbell, TrainingEquipment, type EquipmentHandle } from "./anatomy/TrainingEquipment";
 import { VIEWER_STYLES } from "./anatomy/viewerStyles";
 
 export { sampleExercisePose, solveTwoBone } from "../lib/motionRig";
 const SIDES = [-1, 1] as const, DOWN = new Vector3(0, -1, 0), EMPTY: readonly MuscleId[] = [];
-const BACK_MOVEMENTS: readonly AnimationType[] = ["pulldown","pulldown_supinated","row_seated","row_pull","row_single"];
 type View = "auto" | "front" | "side" | "back" | "reset";
+function SceneReady({sceneKey,onReady}:{sceneKey:string;onReady:(key:string)=>void}){
+  const frames=useRef(0),invalidate=useThree(state=>state.invalidate);
+  useEffect(()=>{frames.current=0;invalidate();},[sceneKey,invalidate]);
+  useFrame(()=>{if(frames.current<2){frames.current++;if(frames.current===2)onReady(sceneKey);else invalidate();}});
+  return null;
+}
 interface PlaybackFrame { progress: number; repetition: number; phase: string }
 interface Seek { value: number; revision: number }
 
@@ -94,29 +100,27 @@ export const ProceduralHuman = memo(function ProceduralHuman({ primaryMuscles, s
     if (!root.current || !torso.current) return;
     if (playing && !anatomy) elapsed.current += Math.min(delta, .1);
     const t = (elapsed.current % cycleDuration) / cycleDuration;
-    const loweringFirst = ["squat", "hinge", "rollout", "side_bend"].includes(animationType), split = loweringFirst ? .58 : .42;
+    const loweringFirst = ["squat", "hinge", "rollout", "side_bend","goblet_squat","reverse_lunge"].includes(animationType), split = loweringFirst ? .58 : .42;
     const linear = t < split ? t / split : 1 - (t - split) / (1 - split), amount = linear * linear * (3 - 2 * linear);
     const pose = sampleExercisePose(anatomy ? "anatomy" : animationType, amount);
+    const skeleton=solvePose(pose);
     root.current.position.fromArray(pose.root); root.current.rotation.set(pose.tilt, 0, 0);
     torso.current.rotation.set(pose.bend, 0, pose.lean);
-    if (head.current) { const bridge = !anatomy && animationType === "bridge"; head.current.position.y = bridge ? .84 : .99; head.current.rotation.x = bridge ? -pose.tilt - Math.PI / 2 : 0; }
+    if (head.current) { head.current.position.y = pose.headHeight??.99; head.current.rotation.x = pose.headTilt??0; }
     root.current.updateMatrixWorld(true);
-    const apply = (upper: Group | null, lower: Group | null, start: V3, end: V3, pole: V3, a: number, b: number) => {
+    const apply = (upper: Group | null, lower: Group | null, start: V3, solved:LimbSolution) => {
       if (!upper || !lower) return;
-      const solved = solveTwoBone(start, end, pole, a, b);
       scratch.a.fromArray(solved.elbow).sub(scratch.b.fromArray(start)).normalize(); upper.quaternion.setFromUnitVectors(DOWN, scratch.a);
       scratch.a.fromArray(solved.end).sub(scratch.b.fromArray(solved.elbow)).normalize(); scratch.q.setFromUnitVectors(DOWN, scratch.a);
       lower.quaternion.copy(upper.quaternion).invert().multiply(scratch.q);
     };
     SIDES.forEach((side, i) => {
-      const hand = scratch.a.fromArray(pose.hands[i]); if (pose.worldHands) torso.current!.worldToLocal(hand);
-      apply(arms.current[i], elbows.current[i], [side * SHOULDER_X, SHOULDER_Y, 0], hand.toArray() as V3, pose.elbowPoles[i], UPPER_ARM, FOREARM);
-      const foot = root.current!.worldToLocal(scratch.a.fromArray(pose.feet[i]));
-      apply(hips.current[i], knees.current[i], [side * HIP_X, 0, 0], foot.toArray() as V3, [0,0,1], THIGH, SHIN);
+      apply(arms.current[i], elbows.current[i], [side * SHOULDER_X, SHOULDER_Y, 0], skeleton.arms[i]);
+      apply(hips.current[i], knees.current[i], [side * HIP_X, 0, 0], skeleton.legs[i]);
     });
     root.current.updateMatrixWorld(true);
     SIDES.forEach((_, i) => {
-      if (knees.current[i] && ankles.current[i]) ankles.current[i]!.quaternion.copy(knees.current[i]!.getWorldQuaternion(scratch.q)).invert();
+      if (knees.current[i] && ankles.current[i]) {ankles.current[i]!.quaternion.copy(knees.current[i]!.getWorldQuaternion(scratch.q)).invert();if(pose.footPitch)ankles.current[i]!.quaternion.multiply(new Quaternion().setFromAxisAngle(new Vector3(1,0,0),pose.footPitch[i]));}
       if (elbows.current[i] && hands.current[i]) hands.current[i]!.quaternion.copy(elbows.current[i]!.getWorldQuaternion(scratch.q)).invert();
     });
     root.current.updateMatrixWorld(true);
@@ -128,7 +132,7 @@ export const ProceduralHuman = memo(function ProceduralHuman({ primaryMuscles, s
     reportTimer.current += delta;
     if (reportTimer.current >= .18) {
       reportTimer.current = 0;
-      onPlayback?.({ progress: t, repetition: Math.floor(elapsed.current / cycleDuration) + 1, phase: anatomy ? "肌群總覽" : animationType === "plank" ? "等長支撐" : t < split ? loweringFirst ? "離心控制" : "向心發力" : loweringFirst ? "向心發力" : "離心控制" });
+      onPlayback?.({ progress: t, repetition: Math.floor(elapsed.current / cycleDuration) + 1, phase: anatomy ? "肌群總覽" : animationType === "plank" ? "等長支撐" : ["dead_bug","bird_dog"].includes(animationType)?t<split?"控制伸展":"穩定回收":animationType==="pallof_press"?t<split?"推離胸前":"控制回收":t < split ? loweringFirst ? "離心控制" : "向心發力" : loweringFirst ? "向心發力" : "離心控制" });
     }
   });
 
@@ -147,8 +151,8 @@ export const ProceduralHuman = memo(function ProceduralHuman({ primaryMuscles, s
             <LimbSurface kind="forearm" side={side} {...surface} />
             <group position={[0,-FOREARM,0]} ref={(node) => { hands.current[i] = node; }} name={`hand-${side}`}>
               <mesh material={skin} scale={[.054,.054,.054]}><sphereGeometry args={[1,20,16]} /></mesh>
-              <Hand skin={skin} />
-              {!anatomy && equipment === "啞鈴" && !(side < 0 && ["row_single","side_bend"].includes(animationType)) && <Dumbbell hammer={animationType === "hammer_curl"} />}
+              <Hand skin={skin} support={["push_up","push_up_narrow","pike_push_up","bird_dog"].includes(animationType)&&!anatomy}/>
+              {!anatomy && equipment === "啞鈴" && !SINGLE_DUMBBELL.includes(animationType) && !(side < 0 && ["row_single","side_bend"].includes(animationType)) && <Dumbbell hammer={animationType === "hammer_curl"} />}
             </group>
           </group>
         </group>)}
@@ -161,8 +165,8 @@ export const ProceduralHuman = memo(function ProceduralHuman({ primaryMuscles, s
           <mesh material={skin} scale={[.095,.092,.095]}><sphereGeometry args={[1,24,20]} /></mesh>
           <LimbSurface kind="shin" side={side} {...surface} />
           <group position={[0,-SHIN,0]} ref={(node) => { ankles.current[i] = node; }}>
-            <RoundedBox args={[.16,.105,.32]} radius={.045} smoothness={4} position={[0,-.018,.085]} castShadow><meshStandardMaterial color="#939fa7" roughness={.65} /></RoundedBox>
-            <RoundedBox args={[.168,.028,.332]} radius={.012} position={[0,-.071,.085]}><meshStandardMaterial color="#424e57" roughness={.9} /></RoundedBox>
+            <RoundedBox args={[.16,.105,.32]} radius={.045} smoothness={4} position={[0,-.0435,.085]} castShadow><meshStandardMaterial color="#939fa7" roughness={.65} /></RoundedBox>
+            <RoundedBox args={[.168,.028,.332]} radius={.012} position={[0,-.096,.085]}><meshStandardMaterial color="#424e57" roughness={.9} /></RoundedBox>
           </group>
         </group>
       </group>)}
@@ -171,21 +175,17 @@ export const ProceduralHuman = memo(function ProceduralHuman({ primaryMuscles, s
   </>;
 });
 
-function CameraRig({ view, revision, anatomy, animationType }: { view: View; revision: number; anatomy: boolean; animationType: AnimationType }) {
+function CameraRig({ view, revision, anatomy, animationType,equipment }: { view: View; revision: number; anatomy: boolean; animationType: AnimationType;equipment:Equipment }) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const { camera, invalidate, size } = useThree();
+  const bounds=useMemo(()=>motionEnvelope(animationType,equipment,anatomy),[animationType,equipment,anatomy]);
   useEffect(() => {
     const back = BACK_MOVEMENTS.includes(animationType);
-    const low = !anatomy && ["press_horizontal","press_incline","push_up","push_up_narrow","plank","bridge","rollout"].includes(animationType);
     const effective = view === "auto" ? back ? "back" : "reset" : view;
-    const center = low ? .8 : !anatomy && ["pulldown","pulldown_supinated","row_seated","pull_up"].includes(animationType) ? 1.6 : 1.4;
-    const span = animationType === "raise" || low && effective === "side" ? 2.7 : 1.9;
-    const distance = Math.max(low ? 3.9 : 5.2, span / (2 * Math.tan(37 * Math.PI / 360) * size.width / size.height) + .2);
-    const direction = new Vector3(...({ front: [0,.06,1], side: [1,.08,0], back: [0,.08,-1], reset: [.65,.28,.88] } as Record<string, V3>)[effective]).normalize();
-    camera.position.copy(direction.multiplyScalar(distance)).add(new Vector3(0,center,0));
-    controls.current?.target.set(0,center,0); camera.lookAt(0,center,0); controls.current?.update(); invalidate();
-  }, [view, revision, anatomy, animationType, camera, invalidate, size.width, size.height]);
-  return <OrbitControls ref={controls} makeDefault enablePan={false} enableDamping dampingFactor={.1} minDistance={2.3} maxDistance={9} minPolarAngle={.22} maxPolarAngle={Math.PI/2} />;
+    const fit=fitCamera(bounds,size.width/Math.max(1,size.height),effective);
+    camera.position.copy(fit.position);controls.current?.target.copy(fit.target);camera.lookAt(fit.target);controls.current?.update();invalidate();
+  }, [view, revision, anatomy, animationType, bounds,camera, invalidate, size.width, size.height]);
+  return <OrbitControls ref={controls} makeDefault enablePan={false} enableDamping dampingFactor={.1} minDistance={1.7} maxDistance={40} minPolarAngle={.18} maxPolarAngle={Math.PI*.79} />;
 }
 
 class CanvasBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
@@ -195,9 +195,9 @@ class CanvasBoundary extends Component<{ children: ReactNode }, { failed: boolea
 }
 
 function defaultEquipment(type: AnimationType): Equipment {
-  if (["press_horizontal","row_pull","squat","press_vertical","curl","rollout"].includes(type)) return "槓鈴";
-  if (["press_incline","row_single","hinge","raise","hammer_curl","side_bend"].includes(type)) return "啞鈴";
-  if (["press_seated","pulldown","pulldown_supinated","row_seated","leg_press","face_pull","extension","plank_crunch"].includes(type)) return "滑輪/機械";
+  if (["press_horizontal","row_pull","squat","press_vertical","curl","rollout","press_close","deadlift","hip_thrust","reverse_curl"].includes(type)) return "槓鈴";
+  if (["press_incline","row_single","hinge","raise","hammer_curl","side_bend","fly_supine","goblet_squat","reverse_lunge","front_raise","reverse_fly","overhead_extension","alternate_curl"].includes(type)) return "啞鈴";
+  if (["press_seated","pulldown","pulldown_supinated","row_seated","leg_press","face_pull","extension","plank_crunch","fly_standing","pulldown_neutral","pullover_cable","press_vertical_seated","pallof_press"].includes(type)) return "滑輪/機械";
   return "徒手";
 }
 
@@ -208,12 +208,14 @@ export default function MuscleViewer3D({ primaryMuscles = EMPTY, secondaryMuscle
   const [frame, setFrame] = useState<PlaybackFrame>({ progress: .15, repetition: 1, phase: "向心發力" }), [seek, setSeek] = useState<Seek | undefined>();
   const [speed, setSpeed] = useState(1), [mounted, setMounted] = useState(false), [visible, setVisible] = useState(true), [reducedMotion, setReducedMotion] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [renderedScene,setRenderedScene]=useState("");
   const previousAnimation = useRef(animationType), container = useRef<HTMLElement>(null);
   const speedId = useId();
   const primary = expandMuscles(primaryMuscles), secondary = [...expandMuscles(secondaryMuscles)].filter((id) => !primary.has(id));
   const focused = selected ?? [...primary][0] ?? null, detail = focused ? MUSCLE_DETAILS[focused] : null;
   const controllable = isPlayingAnimation === undefined || !!onPlayingAnimationChange;
   const activeEquipment = equipment ?? defaultEquipment(animationType), nameParts = exerciseName.split(" (");
+  const sceneKey=`${exerciseName}|${animationType}|${activeEquipment}|${anatomy}|${view.name}:${view.revision}|${seek?.revision??0}`;
   const activeView = view.name === "auto" ? BACK_MOVEMENTS.includes(animationType) ? "back" : "reset" : view.name;
   const updateFrame = useCallback((next: PlaybackFrame) => setFrame(next), []);
   const chooseMuscle = useCallback((muscle: AnatomicalMuscle) => setSelected((last) => last === muscle ? null : muscle), []);
@@ -245,13 +247,16 @@ export default function MuscleViewer3D({ primaryMuscles = EMPTY, secondaryMuscle
   function setPlaying(next: boolean) { if (isPlayingAnimation === undefined) setInternalPlaying(next); onPlayingAnimationChange?.(next); }
   const scrub = (value: number) => { if (controllable) setPlaying(false); setAnatomy(false); setSeek((last) => ({ value, revision: (last?.revision ?? 0) + 1 })); setFrame((last) => ({ ...last, progress: value })); };
   const cycle = (Number.isFinite(cycleDuration) ? Math.max(2, Math.min(12, cycleDuration)) : 5) / speed;
-  return <section ref={container} className={`mv3d ${expanded ? "is-expanded" : ""} ${className}`} role={expanded ? "dialog" : undefined} aria-modal={expanded ? true : undefined} aria-label={`${exerciseName}：互動 3D 人體`}>
+  return <section ref={container} data-scene-ready={renderedScene===sceneKey} className={`mv3d ${expanded ? "is-expanded" : ""} ${className}`} role={expanded ? "dialog" : undefined} aria-modal={expanded ? true : undefined} aria-label={`${exerciseName}：互動 3D 人體`}>
     <style>{VIEWER_STYLES}</style>
+    <header className="mv3d-header"><div className="mv3d-title"><span className="mv3d-kicker">INTERACTIVE ANATOMY</span><h3>{nameParts[0]}</h3>{nameParts[1] && <p>{nameParts[1].replace(/\)$/, "")}</p>}</div>
+      <div className="mv3d-stage-tools"><button type="button" aria-label="切換肌群透視" aria-pressed={xray} onClick={() => setXray((last) => !last)} title="肌群透視"><Layers3 size={17} /></button>
+        <button type="button" data-expand-button aria-label={expanded ? "關閉放大檢視" : "放大檢視"} aria-pressed={expanded} onClick={() => setExpanded((last) => !last)} title={expanded ? "關閉放大檢視" : "放大檢視"}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button></div></header>
     <div className="mv3d-stage" style={{ height: Number.isFinite(height) ? Math.max(480,height) : 660 }}>
-      <CanvasBoundary>{mounted ? <Canvas shadows dpr={[1,1.5]} camera={{ position: [0,1.6,-5.2], fov: 37, near: .1, far: 40 }}
+      <CanvasBoundary>{mounted ? <Canvas shadows="percentage" dpr={[1,1.5]} camera={{ position: [0,1.6,-5.2], fov: 37, near: .1, far: 80 }}
         frameloop={visible && (playing || !reducedMotion && primary.size > 0) ? "always" : "demand"} gl={{ antialias: true, alpha: false }}
         onPointerMissed={() => setSelected(null)} fallback={<p className="mv3d-fallback">此裝置無法顯示 WebGL 3D。</p>}>
-        <color attach="background" args={["#11191d"]} /><fog attach="fog" args={["#11191d",8,18]} />
+        <color attach="background" args={["#11191d"]} /><fog attach="fog" args={["#11191d",12,36]} />
         <ambientLight intensity={.35} /><hemisphereLight args={["#d7e2e9","#243037",.6]} />
         <directionalLight position={[-3,5,-4]} intensity={2.4} color="#e5eff8" castShadow shadow-mapSize={[1024,1024]} shadow-bias={-.0004} shadow-normalBias={.025} />
         <directionalLight position={[4,3,3]} intensity={1.7} color="#ffefd9" />
@@ -263,18 +268,16 @@ export default function MuscleViewer3D({ primaryMuscles = EMPTY, secondaryMuscle
         <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.002,0]} receiveShadow><planeGeometry args={[50,50]} /><meshStandardMaterial color="#172025" roughness={.85} metalness={.12} /></mesh>
         <ProceduralHuman primaryMuscles={primaryMuscles} secondaryMuscles={secondaryMuscles} animationType={animationType} equipment={activeEquipment}
           playing={playing && visible} anatomy={anatomy} cycleDuration={cycle} pulse={!reducedMotion && visible} xray={xray} selected={selected} onSelect={chooseMuscle} seek={seek} onPlayback={updateFrame} />
-        <CameraRig view={view.name} revision={view.revision} anatomy={anatomy} animationType={animationType} />
+        <CameraRig view={view.name} revision={view.revision} anatomy={anatomy} animationType={animationType} equipment={activeEquipment} />
+        <SceneReady sceneKey={sceneKey} onReady={setRenderedScene}/>
         <EffectComposer multisampling={2} enableNormalPass={false}><Bloom mipmapBlur intensity={.58} luminanceThreshold={1.15} luminanceSmoothing={.3} /><Vignette offset={.15} darkness={.45} /></EffectComposer>
       </Canvas> : <p className="mv3d-fallback" role="status">載入 3D 人體…</p>}</CanvasBoundary>
-      <div className="mv3d-title"><span className="mv3d-kicker"><i />INTERACTIVE ANATOMY</span><h3>{nameParts[0]}</h3>{nameParts[1] && <p>{nameParts[1].replace(/\)$/, "")}</p>}</div>
-      <div className="mv3d-stage-tools"><button type="button" aria-label="切換肌群透視" aria-pressed={xray} onClick={() => setXray((last) => !last)} title="肌群透視"><Layers3 size={17} /></button>
-        <button type="button" data-expand-button aria-label={expanded ? "關閉放大檢視" : "放大檢視"} aria-pressed={expanded} onClick={() => setExpanded((last) => !last)} title={expanded ? "關閉放大檢視" : "放大檢視"}>{expanded ? <Minimize2 size={17} /> : <Maximize2 size={17} />}</button></div>
-      {detail && focused && <div className={`mv3d-focus ${selected ? "is-selected" : ""}`}><span>{selected ? "已選肌群" : "主要發力肌群"}</span><strong>{MUSCLE_LABELS[focused]}</strong><small>{detail.english}</small>{selected && <p>{detail.function}</p>}</div>}
-      <div className="mv3d-floor-label"><Rotate3d size={15} /><span>拖曳旋轉 · 點選肌群 · 雙指縮放</span></div>
+    </div>
+    <div className="mv3d-camera-controls">
       <div className="mv3d-views" role="group" aria-label="人體視角">{([ ["front","正面"], ["side","側面"], ["back","背面"], ["reset","重置"] ] as const).map(([name,label]) =>
         <button type="button" key={name} aria-label={name === "reset" ? "重置視角" : label} aria-pressed={activeView === name} onClick={() => setView((last) => ({ name, revision:last.revision+1 }))}>{name === "reset" ? <RotateCcw size={14} /> : null}{label}</button>)}</div>
       <div className="mv3d-mode-switch"><button type="button" aria-pressed={!anatomy} onClick={() => setAnatomy(false)}><ScanLine size={14} />動作示範</button><button type="button" aria-pressed={anatomy} onClick={() => { setAnatomy(true); if (controllable) setPlaying(false); }}><Eye size={14} />肌群總覽</button></div>
-    </div>
+    </div><div className="mv3d-floor-label"><Rotate3d size={15} /><span>拖曳旋轉 · 點選肌群 · 雙指縮放；重置可看完整動作</span></div>
     <div className="mv3d-playback">
       <div className="mv3d-playback-top"><button type="button" className="mv3d-play" disabled={!controllable} aria-label={playing && !anatomy ? "暫停 3D 動作示範" : "播放 3D 動作示範"} aria-pressed={playing && !anatomy}
         onClick={() => { setAnatomy(false); setPlaying(anatomy || !playing); }} title={!controllable ? "請提供 onPlayingAnimationChange 以控制播放" : undefined}>{playing && !anatomy ? <Pause size={19} fill="currentColor" /> : <Play size={19} fill="currentColor" />}</button>
@@ -286,7 +289,7 @@ export default function MuscleViewer3D({ primaryMuscles = EMPTY, secondaryMuscle
     </div>
     <div className="mv3d-muscle-list"><div className="mv3d-muscle-group"><span><i className="primary" />主要發力</span><div>{[...primary].map((id) => <button type="button" key={id} aria-pressed={selected===id} onClick={() => chooseMuscle(id)}>{MUSCLE_LABELS[id]}</button>)}</div></div>
       <div className="mv3d-muscle-group"><span><i className="secondary" />協同肌群</span><div>{secondary.length ? secondary.map((id) => <button type="button" key={id} aria-pressed={selected===id} onClick={() => chooseMuscle(id)}>{MUSCLE_LABELS[id]}</button>) : <small>此動作未另列協同肌群</small>}</div></div></div>
-    {selected && detail && <p className="mv3d-mobile-detail"><strong>{MUSCLE_LABELS[selected]}</strong>{detail.function}</p>}
+    {detail && focused && <div className="mv3d-focus"><span>{selected ? "已選肌群" : "主要發力肌群"}</span><strong>{MUSCLE_LABELS[focused]}<small>{detail.english}</small></strong>{selected&&<p>{detail.function}</p>}</div>}
     <p className="mv3d-note">顏色標示肌群角色，不代表出力百分比。{["side_bend","row_single"].includes(animationType) && "單側動作請記得換邊。"}</p>
   </section>;
 }

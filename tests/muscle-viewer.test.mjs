@@ -6,28 +6,28 @@ import { build } from "esbuild";
 import { createElement } from "react";
 import { renderToString } from "react-dom/server";
 import ReactThreeTestRenderer from "@react-three/test-renderer";
-import { Vector3 } from "three";
+import {Box3,PerspectiveCamera,Vector3} from "three";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 let module;
 before(async () => {
   await mkdir(".test-output", { recursive: true });
   await build({
-    stdin: { contents: 'export * from "./lib/exercisesData"; export * from "./components/MuscleViewer3D"; export * from "./components/anatomy/geometry"; export { default } from "./components/MuscleViewer3D";', resolveDir: process.cwd(), loader: "tsx" },
+    stdin: { contents: 'export * from "./lib/exercisesData"; export * from "./lib/sceneFraming"; export * from "./lib/motionRig"; export * from "./components/MuscleViewer3D"; export * from "./components/anatomy/geometry"; export { default } from "./components/MuscleViewer3D";', resolveDir: process.cwd(), loader: "tsx" },
     outfile: ".test-output/muscle-viewer.mjs", bundle: true, packages: "external", format: "esm", platform: "node", jsx: "automatic",
   });
   module = await import(pathToFileURL(`${process.cwd()}/.test-output/muscle-viewer.mjs`).href);
 });
 
-test("26 unique exercises include both reference movements and complete teaching", () => {
+test("50 unique exercises include complete coaching across all muscle groups", () => {
   const { exercisesData, CATEGORIES, ANIMATION_TYPES } = module;
-  assert.equal(exercisesData.length, 26);
-  assert.equal(new Set(exercisesData.map((item) => item.id)).size, 26);
+  assert.equal(exercisesData.length, 50);
+  assert.equal(new Set(exercisesData.map((item) => item.id)).size, 50);
   assert.ok(exercisesData.some((item) => item.id === "reverse_grip_lat_pulldown"));
   assert.ok(exercisesData.some((item) => item.id === "seated_machine_row"));
   for (const category of CATEGORIES) {
     const items = exercisesData.filter((item) => item.category === category);
-    assert.ok(items.length >= 4);
+    assert.ok(items.length >= 8);
     assert.deepEqual(new Set(items.map((item) => item.equipment)), new Set(["槓鈴", "啞鈴", "滑輪/機械", "徒手"]));
   }
   for (const item of exercisesData) {
@@ -59,7 +59,60 @@ test("every animation yields finite poses throughout its full cycle", () => {
   const standing = module.sampleExercisePose("squat", 0), bottom = module.sampleExercisePose("squat", 1);
   assert.ok(bottom.root[1] < standing.root[1]);
   assert.deepEqual(bottom.feet, standing.feet);
-  assert.ok(module.sampleExercisePose("press_horizontal", 1).hands[0][2] > module.sampleExercisePose("press_horizontal", 0).hands[0][2]);
+  assert.ok(module.sampleExercisePose("press_horizontal", 1).hands[0][1] > module.sampleExercisePose("press_horizontal", 0).hands[0][1]);
+});
+
+test("all exercises fit every preset camera at narrow mobile, tablet and desktop aspect ratios",()=>{
+  for(const exercise of module.exercisesData){
+    const bounds=module.motionEnvelope(exercise.animationType,exercise.equipment);
+    for(const aspect of [280/410,348/410,620/530,1100/660])for(const view of ["front","side","back","reset"]){
+      const fit=module.fitCamera(bounds,aspect,view),camera=new PerspectiveCamera(37,aspect,.1,80);
+      camera.position.copy(fit.position);camera.lookAt(fit.target);camera.updateMatrixWorld();
+      for(let step=0;step<=40;step++)for(const point of module.solvePose(module.sampleExercisePose(exercise.animationType,step/40)).worldPoints){
+        const projected=point.clone().project(camera);
+        assert.ok(Math.abs(projected.x)<.96&&Math.abs(projected.y)<.96&&projected.z>-1&&projected.z<1,`${exercise.id}/${view}/${aspect}: ${projected.toArray()}`);
+      }
+    }
+  }
+});
+
+function visibleBounds(root){
+  const bounds=new Box3();root.updateMatrixWorld(true);
+  root.traverseVisible(object=>{if(object.geometry){object.geometry.computeBoundingBox();bounds.union(object.geometry.boundingBox.clone().applyMatrix4(object.matrixWorld));}});
+  return bounds;
+}
+test("motion targets remain reachable and elbow and knee centers stay above the floor",()=>{
+  for(const exercise of module.exercisesData)for(let step=0;step<=40;step++){
+    const pose=module.sampleExercisePose(exercise.animationType,step/40),sample=module.solvePose(pose);
+    for(let i=0;i<2;i++){
+      const wrist=new Vector3(...sample.arms[i].end);if(pose.worldHands)wrist.applyMatrix4(sample.torsoMatrix);
+      const ankle=new Vector3(...sample.legs[i].end).applyMatrix4(sample.rootMatrix);
+      assert.ok(wrist.distanceTo(new Vector3(...pose.hands[i]))<.05,`${exercise.id}: unreachable hand target`);
+      assert.ok(ankle.distanceTo(new Vector3(...pose.feet[i]))<.05,`${exercise.id}: unreachable foot target`);
+      assert.ok(new Vector3(...sample.arms[i].elbow).applyMatrix4(sample.torsoMatrix).y>=0,`${exercise.id}: elbow below floor`);
+      assert.ok(new Vector3(...sample.legs[i].elbow).applyMatrix4(sample.rootMatrix).y>=0,`${exercise.id}: knee below floor`);
+    }
+  }
+});
+test("rendered anatomy and equipment remain inside the fitted view for every exercise and motion extremes",async()=>{
+  const failures=[];
+  for(const exercise of module.exercisesData){
+    const props={primaryMuscles:exercise.primaryMuscles,secondaryMuscles:exercise.secondaryMuscles,animationType:exercise.animationType,equipment:exercise.equipment,playing:false,anatomy:false,cycleDuration:5,pulse:false};
+    const renderer=await ReactThreeTestRenderer.create(createElement(module.ProceduralHuman,props));
+    const expected=module.motionEnvelope(exercise.animationType,exercise.equipment);
+    for(const [index,progress] of [0,.42,.75].entries()){
+      await renderer.update(createElement(module.ProceduralHuman,{...props,seek:{value:progress,revision:index+1}}));await renderer.advanceFrames(1,.016);
+      const actual=visibleBounds(renderer.scene.findByProps({name:"human-rig"}).instance).union(visibleBounds(renderer.scene.findByProps({name:"training-equipment"}).instance));
+      for(const aspect of [280/410,1100/660])for(const view of ["front","side","back","reset"]){
+        const fit=module.fitCamera(expected,aspect,view),camera=new PerspectiveCamera(37,aspect,.1,80);camera.position.copy(fit.position);camera.lookAt(fit.target);camera.updateMatrixWorld();
+        for(const x of [actual.min.x,actual.max.x])for(const y of [actual.min.y,actual.max.y])for(const z of [actual.min.z,actual.max.z]){
+          const point=new Vector3(x,y,z).project(camera);if(Math.abs(point.x)>.98||Math.abs(point.y)>.98)failures.push(`${exercise.id} phase ${progress} ${view}: ${point.toArray()}`);
+        }
+      }
+    }
+    await renderer.unmount();
+  }
+  assert.deepEqual(failures,[]);
 });
 
 test("two-bone IK preserves segment lengths for reachable, unreachable, zero-distance and collinear targets", () => {

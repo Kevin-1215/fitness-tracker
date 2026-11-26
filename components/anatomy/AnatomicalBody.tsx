@@ -21,12 +21,14 @@ export function createMuscleMaterial() {
       .replace("#include <begin_vertex>", "#include <begin_vertex>\nvMuscleUv = uv;");
     shader.fragmentShader = shader.fragmentShader.replace("#include <common>", "#include <common>\nvarying vec2 vMuscleUv;")
       .replace("#include <color_fragment>", `#include <color_fragment>
-        float fibers = sin(vMuscleUv.y * 135.0 + sin(vMuscleUv.x * 3.5) * 12.0);
-        diffuseColor.rgb *= 0.94 + fibers * 0.045;`)
+        float fiberPhase = vMuscleUv.y * 100.0 + sin(vMuscleUv.x * 3.5) * 9.0;
+        float fiberFilter = 1.0 - smoothstep(0.4, 1.8, fwidth(fiberPhase));
+        float activeMuscle = step(0.02, max(emissive.r, max(emissive.g, emissive.b)));
+        diffuseColor.rgb *= 1.0 - activeMuscle * 0.015 * (1.0 - sin(fiberPhase)) * fiberFilter;`)
       .replace("#include <emissivemap_fragment>", `#include <emissivemap_fragment>
-        totalEmissiveRadiance *= 0.88 + 0.12 * sin(vMuscleUv.y * 135.0 + sin(vMuscleUv.x * 3.5) * 12.0);`);
+        totalEmissiveRadiance *= 1.0 - 0.025 * (1.0 - sin(fiberPhase)) * fiberFilter;`);
   };
-  material.customProgramCacheKey = () => "anatomical-fibers-v2";
+  material.customProgramCacheKey = () => "anatomical-fibers-antialiased-v3";
   return material;
 }
 
@@ -52,7 +54,7 @@ export function TorsoSurface(props: BodySurfaceProps) {
   const patches = useMemo(() => TORSO_PATCHES.map((p) => ({ ...p, patch: createTorsoPatch(p.points, p.back) })), []);
   useEffect(() => () => geometry.dispose(), [geometry]);
   return <>
-    <mesh name="sculpted-torso" geometry={geometry} material={props.skin} castShadow receiveShadow onPointerOver={(e) => e.stopPropagation()} />
+    <mesh name="sculpted-torso" geometry={geometry} material={props.skin} castShadow onPointerOver={(e) => e.stopPropagation()} />
     {patches.map((patch, i) => <Patch key={i} {...props} muscle={patch.muscle} patch={patch.patch} />)}
   </>;
 }
@@ -69,7 +71,7 @@ export function LimbSurface({ kind, side = 1, ...props }: { kind: LimbKind; side
     }
   }, [kind, side]);
   useEffect(() => () => geometry.dispose(), [geometry]);
-  return <><mesh geometry={geometry} material={props.skin} castShadow receiveShadow onPointerOver={(e) => e.stopPropagation()} />
+  return <><mesh geometry={geometry} material={props.skin} castShadow onPointerOver={(e) => e.stopPropagation()} />
     {patches.map((patch) => <Patch key={patch.muscle} {...props} muscle={patch.muscle} patch={patch.patch} />)}</>;
 }
 
@@ -82,10 +84,10 @@ export function Head({ skin }: { skin: MeshPhysicalMaterial }) {
   </>;
 }
 
-export function Hand({ skin }: { skin: MeshPhysicalMaterial }) {
-  return <group>
+export function Hand({ skin,support=false }: { skin: MeshPhysicalMaterial;support?:boolean }) {
+  return <group rotation={support?[-Math.PI/2,0,0]:[0,0,0]}>
     <mesh position={[0, -.03, .005]} scale={[.061, .079, .032]} material={skin} castShadow><sphereGeometry args={[1, 24, 20]} /></mesh>
-    {[-.039, -.013, .013, .038].map((x, i) => <group key={x} position={[x, -.078, .009]} rotation={[-.42, 0, 0]}>
+    {support?[-.039,-.013,.013,.038].map((x,i)=><mesh key={x} position={[x,-.106,-.012]} material={skin}><capsuleGeometry args={[.013,i===0||i===3?.048:.063,6,10]}/></mesh>):[-.039, -.013, .013, .038].map((x, i) => <group key={x} position={[x, -.078, .009]} rotation={[-.42, 0, 0]}>
       <mesh position={[0, -.025, 0]} material={skin}><capsuleGeometry args={[.013, i === 0 || i === 3 ? .035 : .049, 6, 10]} /></mesh>
       <mesh position={[0, -.049, .017]} rotation={[-.75, 0, 0]} material={skin}><capsuleGeometry args={[.012, .023, 6, 10]} /></mesh>
     </group>)}

@@ -1,3 +1,5 @@
+import {additionalExercises} from "./additionalExercises";
+
 export const CATEGORIES = ["chest", "back", "legs", "shoulders", "arms", "core"] as const;
 export type ExerciseCategory = (typeof CATEGORIES)[number];
 export type Equipment = "槓鈴" | "啞鈴" | "滑輪/機械" | "徒手";
@@ -35,6 +37,10 @@ export const ANIMATION_TYPES = [
   "row_pull", "row_single", "pulldown", "pull_up", "squat", "hinge", "leg_press", "bridge",
   "press_vertical", "raise", "face_pull", "pike_push_up", "curl", "hammer_curl", "extension",
   "push_up_narrow", "rollout", "side_bend", "plank_crunch", "plank", "pulldown_supinated", "row_seated",
+  "fly_supine", "fly_standing", "deadlift", "pulldown_neutral", "pullover_cable", "inverted_row",
+  "goblet_squat", "reverse_lunge", "calf_raise", "hip_thrust", "front_raise", "reverse_fly",
+  "press_vertical_seated", "press_close", "reverse_curl", "overhead_extension", "alternate_curl",
+  "dead_bug", "bird_dog", "hanging_knee_raise", "pallof_press",
 ] as const;
 export type AnimationType = (typeof ANIMATION_TYPES)[number];
 
@@ -386,6 +392,7 @@ export const exercisesData = [
     breathing: "握把向前回放時吸氣，向身體拉近時吐氣。",
     commonMistakes: ["避免聳肩、抬下巴或用腰部反覆前後擺動。", "不要為了把握把拉到身體而讓手肘過度後伸，採用肩膀舒適的行程。"],
   },
+  ...additionalExercises,
 ] as const satisfies readonly Exercise[];
 
 export const exerciseById: ReadonlyMap<string, Exercise> = new Map<string, Exercise>(

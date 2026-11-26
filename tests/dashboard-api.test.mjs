@@ -73,3 +73,8 @@ test("invalid dates, non-finite or negative numbers, unknown exercises and cross
   assert.equal((await request("/api/nutrition?id=not-an-id",{method:"DELETE",source:"https://evil.test"})).status,403);
   assert.equal((await request("/api/nutrition",{method:"POST",body:{log_date:date,meal_type:"lunch",food_name:"food",calories:100,protein_g:-2,carbs_g:0,fat_g:0}})).status,400);
 });
+test("new catalog exercises are accepted with the server-owned canonical name",async()=>{
+  const result=await postSet(alice,"2026-11-28",0,"standing_pallof_press");assert.equal(result.status,201);
+  const data=await result.json();assert.equal(data.entry.exercise_code,"standing_pallof_press");assert.match(data.entry.exercise_name,/站姿滑輪抗旋轉推/);assert.equal(data.entry.weight_kg,0);
+  const other=await(await request("/api/workouts?date=2026-11-28&exercise_code=standing_pallof_press",{cookie:bob})).json();assert.equal(other.logs.length,0);
+});

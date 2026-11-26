@@ -31,7 +31,7 @@ Mifflin-St Jeor 成人簡化式：`BMR = 10×kg + 6.25×cm − 5×age + (male:5 
 {"log_date":"2026-11-26","exercise_code":"bench_press","weight_kg":60,"reps":10,"notes":"最後兩下較吃力"}
 ```
 
-重量 0–1500 kg，次數 1–1000 整數，備註最多 500 字元。動作代碼必須在內建 26 個動作中，名稱由伺服器填入。組號以同一條 SQLite INSERT SELECT MAX statement 產生，避免並行新增計算到相同組號。刪除後保留既有組號，不重新編排。
+重量 0–1500 kg，次數 1–1000 整數，備註最多 500 字元。動作代碼必須在內建 50 個動作中，名稱由伺服器填入。組號以同一條 SQLite INSERT SELECT MAX statement 產生，避免並行新增計算到相同組號。刪除後保留既有組號，不重新編排。
 
 `history.pr_weight_kg` 為截至選定日期、有效次數大於零的最高重量；`last_date` 與 `last_sets` 為該日期之前最近一天的同動作紀錄。未指定 exercise_code 時 history 為 null。總訓練量是每組 kg×reps 的加總，徒手重量填 0。
 
@@ -42,6 +42,8 @@ Mifflin-St Jeor 成人簡化式：`BMR = 10×kg + 6.25×cm − 5×age + (male:5 
 ```
 
 meal_type 為 breakfast／lunch／dinner／snack；名稱最多 120 字元；熱量 0–10000 整數，三大營養素各 0–1000 g。加總最後才四捨五入至一位小數。20 種捷徑標明份量，數值為可編輯的估算，並非外部食品資料庫查詢。
+
+前端另提供「依營養素估算熱量」按鈕，計算 `round(4×protein_g + 4×carbs_g + 9×fat_g)`。只有使用者按下時才帶入，不覆蓋包裝標示，也不視為食品資料庫查詢。詳細邏輯可在飲食頁「每日目標與飲食熱量，怎麼算？」展開查看。
 
 ## UI 與驗證
 
