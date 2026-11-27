@@ -18,9 +18,11 @@
 - `components/ExerciseDetailModal.tsx`：預設實人影片，外部播放器按需載入；無法內嵌時保留原影片與教學來源連結。
 - `components/ExercisePractice.tsx`：可調組數、次數／秒數、每側計數與 60／90／120 秒休息倒數。完成按鈕由使用者確認，不自動偵測次數，也不自動新增重量紀錄。
 
-舊 IK 動作僅約束手腳端點，無法證明關節轉動與器材握法正確，因此正式版已停用合成動作與播放／進度控制。`MuscleViewer3D` 強制使用中立站姿的肌群總覽，即使舊呼叫者傳入 `isPlayingAnimation=true` 也不播放。保留正／側／背／重置、肌群點選、主橘紅／協同琥珀黃、透視、縮放與放大。肌群色彩不代表出力比例。
+新增 12 個動作變式的 3D 拆解，必須以 `exerciseId` 命中 `lib/motionCatalog.ts` 才會開啟；僅傳入舊 `animationType` 不會啟用舊 IK 動畫。新骨架限制肘膝鉸鏈、固定肢段長度、腳底支撐與槓鈴握距，手與器材使用同一握點。實作位於 `lib/controlledMotion.ts` 與 `components/anatomy/ControlledHuman.tsx`。
 
-尚未完成具人體關節限制的 3D 動作重建；實際跟練請使用實人影片與中文步驟。可見的版本差異不可忽略，例如窄握來源不等於寬握、負重提踵影片不等於本頁徒手版本。
+已開放：槓鈴／啞鈴平板臥推、窄握槓鈴臥推、上斜啞鈴／槓鈴臥推、槓鈴二頭彎舉、啞鈴槌式／交替彎舉、啞鈴側／前平舉、槓鈴背蹲、啞鈴羅馬尼亞硬舉。支援暫停、0.5×／0.75×／1×、拖曳進度、四個關鍵姿勢、關節與軌跡、四視角、上半身放大，以及影片／3D 對照觀看。預設影片，3D 預設暫停；兩個播放器各自控制，不自動同步。
+
+其餘 38 項提供靜態肌群總覽與實人影片。肌群色彩不代表出力比例，圖中角度是模型值，不是使用者的目標角度。數值和渲染測試可檢查程式約束與接觸一致性，不能取代真人教練或生物力學驗證。來源影片的變式差異仍會顯示於旁邊。
 
 ## 常見食物
 
@@ -70,6 +72,7 @@ pnpm run test:dashboard
 pnpm run test:cors
 pnpm run test:muscles
 pnpm run test:guides
+pnpm run test:controlled
 pnpm run build
 pnpm run test:routing
 ```

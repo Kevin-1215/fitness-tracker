@@ -18,6 +18,7 @@
     "test:muscles": "node --test tests/muscle-viewer.test.mjs",
     "test:dashboard": "node --test tests/dashboard-api.test.mjs",
     "test:guides": "node --test tests/exercise-guides.test.mjs",
+    "test:controlled": "node --test tests/controlled-motion.test.mjs",
     "preview:muscles": "vite --config vite.demo.config.ts",
     "build:muscles": "vite build --config vite.demo.config.ts",
     "db:init": "wrangler d1 execute DB --remote --file=schema.sql"

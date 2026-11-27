@@ -1,10 +1,10 @@
 'use client';
 
-import { Component, memo, useCallback, useEffect, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
+import { Component, memo, useCallback, useEffect, useId, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Environment, Lightformer, OrbitControls, RoundedBox } from "@react-three/drei";
 import { Bloom, EffectComposer, Vignette } from "@react-three/postprocessing";
-import { Layers3, Maximize2, Minimize2, RotateCcw, Rotate3d } from "lucide-react";
+import { Layers3, Maximize2, Minimize2, RotateCcw, Rotate3d, Play, Pause, Waypoints, ScanLine } from "lucide-react";
 import { Group, MeshPhysicalMaterial, Quaternion, Vector3 } from "three";
 import { expandMuscles, MUSCLE_LABELS, type AnatomicalMuscle, type AnimationType, type Equipment, type MuscleId } from "../lib/exercisesData";
 import { FOREARM, HIP_X, SHIN, SHOULDER_X, SHOULDER_Y, THIGH, UPPER_ARM, sampleExercisePose, solvePose, type LimbSolution, type V3 } from "../lib/motionRig";
@@ -12,6 +12,9 @@ import {BACK_MOVEMENTS,SINGLE_DUMBBELL,fitCamera,motionEnvelope} from "../lib/sc
 import { createMuscleMaterial, Hand, Head, LimbSurface, TorsoSurface, type MuscleMaterials } from "./anatomy/AnatomicalBody";
 import { Dumbbell, TrainingEquipment, type EquipmentHandle } from "./anatomy/TrainingEquipment";
 import { VIEWER_STYLES } from "./anatomy/viewerStyles";
+import {ControlledHuman,type ControlledFrame} from './anatomy/ControlledHuman';
+import {controlledEnvelope} from '../lib/controlledMotion';
+import {controlledMotionFor} from '../lib/motionCatalog';
 
 export { sampleExercisePose, solveTwoBone } from "../lib/motionRig";
 const SIDES = [-1, 1] as const, DOWN = new Vector3(0, -1, 0), EMPTY: readonly MuscleId[] = [];
@@ -26,6 +29,7 @@ interface PlaybackFrame { progress: number; repetition: number; phase: string }
 interface Seek { value: number; revision: number }
 
 export interface MuscleViewer3DProps {
+  exerciseId?:string;
   primaryMuscles?: readonly MuscleId[];
   secondaryMuscles?: readonly MuscleId[];
   animationType?: AnimationType;
@@ -175,10 +179,10 @@ export const ProceduralHuman = memo(function ProceduralHuman({ primaryMuscles, s
   </>;
 });
 
-function CameraRig({ view, revision, anatomy, animationType,equipment }: { view: View; revision: number; anatomy: boolean; animationType: AnimationType;equipment:Equipment }) {
+function CameraRig({ view, revision, anatomy, animationType,equipment,exerciseId,upperBody=false }: { view: View; revision: number; anatomy: boolean; animationType: AnimationType;equipment:Equipment;exerciseId?:string;upperBody?:boolean }) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const { camera, invalidate, size } = useThree();
-  const bounds=useMemo(()=>motionEnvelope(animationType,equipment,anatomy),[animationType,equipment,anatomy]);
+  const bounds=useMemo(()=>!anatomy&&exerciseId&&controlledMotionFor(exerciseId)?controlledEnvelope(exerciseId,equipment,upperBody):motionEnvelope(animationType,equipment,true),[animationType,equipment,anatomy,exerciseId,upperBody]);
   useEffect(() => {
     const back = BACK_MOVEMENTS.includes(animationType);
     const effective = view === "auto" ? back ? "back" : "reset" : view;
@@ -201,43 +205,56 @@ function defaultEquipment(type: AnimationType): Equipment {
   return "徒手";
 }
 
-/** The old IK motion is withheld: reaching a target is not proof of a valid
- * human joint trajectory. Public rendering always uses the neutral anatomy pose,
- * including when a legacy caller passes isPlayingAnimation=true. */
-export const PUBLIC_VIEWER_MODE = 'anatomy-only' as const;
-export default function MuscleViewer3D({ primaryMuscles = EMPTY, secondaryMuscles = EMPTY, animationType = "press_horizontal", equipment, exerciseName = "互動肌群總覽", height = 660, className = "" }: MuscleViewer3DProps) {
+/** Motion is explicitly enabled by exercise ID. The old unrestricted IK paths
+ * remain withheld, including for variants sharing an animationType. */
+export const PUBLIC_VIEWER_MODE = 'controlled-motion-or-anatomy' as const;
+export default function MuscleViewer3D({ exerciseId,primaryMuscles = EMPTY, secondaryMuscles = EMPTY, animationType = "press_horizontal", equipment, exerciseName = "互動肌群總覽",isPlayingAnimation,defaultPlayingAnimation=false,onPlayingAnimationChange,cycleDuration=6, height = 660, className = "" }: MuscleViewer3DProps) {
+  const motion=controlledMotionFor(exerciseId),speedId=useId();
+  const [anatomy,setAnatomy]=useState(!motion),[internalPlaying,setInternalPlaying]=useState(defaultPlayingAnimation),[guides,setGuides]=useState(true),[speed,setSpeed]=useState(1),[seek,setSeek]=useState<Seek|undefined>(),[sidePhase,setSidePhase]=useState(0),[upperBody,setUpperBody]=useState(false);
+  const [frame,setFrame]=useState<ControlledFrame>({progress:.3,depth:.5,metric:0,metricLabel:motion?.jointLabel??'',phase:'中段位置',side:0});
   const [xray,setXray]=useState(false),[selected,setSelected]=useState<AnatomicalMuscle|null>(null);
   const [view,setView]=useState<{name:View;revision:number}>({name:"auto",revision:0});
   const [mounted,setMounted]=useState(false),[visible,setVisible]=useState(true),[reducedMotion,setReducedMotion]=useState(false),[expanded,setExpanded]=useState(false),[renderedScene,setRenderedScene]=useState("");
   const container=useRef<HTMLElement>(null),primary=expandMuscles(primaryMuscles),secondary=[...expandMuscles(secondaryMuscles)].filter(id=>!primary.has(id));
   const focused=selected??[...primary][0]??null,detail=focused?MUSCLE_DETAILS[focused]:null;
   const activeEquipment=equipment??defaultEquipment(animationType),nameParts=exerciseName.split(" (");
-  const sceneKey=exerciseName+"|anatomy|"+view.name+":"+view.revision;
+  const moving=!!motion&&!anatomy,playing=moving&&(isPlayingAnimation??internalPlaying),controllable=isPlayingAnimation===undefined||!!onPlayingAnimationChange;
+  const duration=Math.max(3,Math.min(12,Number.isFinite(cycleDuration)?cycleDuration:6))/speed;
+  const sceneKey=exerciseName+"|"+(moving?'motion':'anatomy')+"|"+view.name+":"+view.revision+":"+(seek?.revision??0)+":"+sidePhase+":"+upperBody;
   const activeView=view.name==="auto"?BACK_MOVEMENTS.includes(animationType)?"back":"reset":view.name;
   const chooseMuscle=useCallback((muscle:AnatomicalMuscle)=>setSelected(last=>last===muscle?null:muscle),[]);
+  const updateFrame=useCallback((next:ControlledFrame)=>setFrame(next),[]);
+  function setPlaying(value:boolean){if(isPlayingAnimation===undefined)setInternalPlaying(value);onPlayingAnimationChange?.(value);}
+  function scrub(value:number){setPlaying(false);setSeek(last=>({value,revision:(last?.revision??0)+1}));setFrame(last=>({...last,progress:value}));}
   useEffect(()=>{setMounted(true);const query=window.matchMedia("(prefers-reduced-motion: reduce)");const motion=()=>setReducedMotion(query.matches),visibility=()=>setVisible(!document.hidden);motion();visibility();query.addEventListener("change",motion);document.addEventListener("visibilitychange",visibility);return()=>{query.removeEventListener("change",motion);document.removeEventListener("visibilitychange",visibility);};},[]);
-  useEffect(()=>{setSelected(null);setView({name:"auto",revision:0});},[exerciseName]);
+  useEffect(()=>{setSelected(null);setView({name:"auto",revision:0});setAnatomy(!controlledMotionFor(exerciseId));setInternalPlaying(false);setSeek(undefined);setSidePhase(0);setUpperBody(false);},[exerciseName,exerciseId]);
   useEffect(()=>{
     if(!expanded)return;const previousOverflow=document.body.style.overflow,previousFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
     document.body.style.overflow="hidden";container.current?.querySelector<HTMLButtonElement>("[data-expand-button]")?.focus();
     const keyboard=(event:KeyboardEvent)=>{if(event.key==="Escape"){event.preventDefault();event.stopPropagation();setExpanded(false);}if(event.key!=="Tab")return;const items=[...(container.current?.querySelectorAll<HTMLElement>("button:not(:disabled),input:not(:disabled),select:not(:disabled),[tabindex='0']")??[])];if(!items.length)return;if(event.shiftKey&&document.activeElement===items[0]){event.preventDefault();items.at(-1)?.focus();}else if(!event.shiftKey&&document.activeElement===items.at(-1)){event.preventDefault();items[0].focus();}};
     document.addEventListener("keydown",keyboard,true);return()=>{document.body.style.overflow=previousOverflow;document.removeEventListener("keydown",keyboard,true);previousFocus?.focus();};
   },[expanded]);
-  return <section ref={container} data-scene-ready={renderedScene===sceneKey} data-mode="anatomy" data-motion-enabled="false" className={"mv3d "+(expanded?"is-expanded ":"")+className} role={expanded?"dialog":undefined} aria-modal={expanded?true:undefined} aria-label={exerciseName+"：互動 3D 肌群"}>
-    <style>{VIEWER_STYLES}</style><header className="mv3d-header"><div className="mv3d-title"><span className="mv3d-kicker">INTERACTIVE ANATOMY</span><h3>{nameParts[0]}</h3>{nameParts[1]&&<p>{nameParts[1].replace(/\)$/,"")}</p>}</div><div className="mv3d-stage-tools"><button type="button" aria-label="切換肌群透視" aria-pressed={xray} onClick={()=>setXray(last=>!last)}><Layers3 size={17}/></button><button type="button" data-expand-button aria-label={expanded?"關閉放大檢視":"放大檢視"} aria-pressed={expanded} onClick={()=>setExpanded(last=>!last)}>{expanded?<Minimize2 size={17}/>:<Maximize2 size={17}/>}</button></div></header>
-    <div className="mv3d-stage" style={{height:Number.isFinite(height)?Math.max(480,height):660}}><CanvasBoundary>{mounted?<Canvas shadows="percentage" dpr={[1,1.5]} camera={{position:[0,1.6,-5.2],fov:37,near:.1,far:80}} frameloop={visible&&!reducedMotion&&primary.size>0?"always":"demand"} gl={{antialias:true,alpha:false}} onPointerMissed={()=>setSelected(null)} fallback={<p className="mv3d-fallback">此裝置無法顯示 WebGL 3D，仍可觀看影片與中文步驟。</p>}>
+  return <section ref={container} data-scene-ready={renderedScene===sceneKey} data-mode={moving?'controlled-motion':'anatomy'} data-motion-enabled={moving?'true':'false'} className={"mv3d "+(expanded?"is-expanded ":"")+className} role={expanded?"dialog":undefined} aria-modal={expanded?true:undefined} aria-label={exerciseName+"：互動 3D 肌群"}>
+    <style>{VIEWER_STYLES}</style><header className="mv3d-header"><div className="mv3d-title"><span className="mv3d-kicker">{moving?"MOVEMENT LAB":"INTERACTIVE ANATOMY"}</span><h3>{nameParts[0]}</h3>{nameParts[1]&&<p>{nameParts[1].replace(/\)$/,"")}</p>}</div><div className="mv3d-stage-tools">{moving&&motion&&!["squat","hinge"].includes(motion.kind)&&<button type="button" aria-label={upperBody?"顯示全身":"放大上半身"} title={upperBody?"顯示全身":"放大上半身"} aria-pressed={upperBody} onClick={()=>setUpperBody(value=>!value)}><ScanLine size={17}/></button>}<button type="button" aria-label="切換肌群透視" aria-pressed={xray} onClick={()=>setXray(last=>!last)}><Layers3 size={17}/></button><button type="button" data-expand-button aria-label={expanded?"關閉放大檢視":"放大檢視"} aria-pressed={expanded} onClick={()=>setExpanded(last=>!last)}>{expanded?<Minimize2 size={17}/>:<Maximize2 size={17}/>}</button></div></header>
+    {moving&&motion&&<div className="mv3d-playback"><div className="mv3d-playback-top"><button type="button" className="mv3d-play" aria-label={playing?'暫停 3D 動作示範':'播放 3D 動作示範'} aria-pressed={playing} disabled={!controllable} onClick={()=>setPlaying(!playing)}>{playing?<Pause size={19}/>:<Play size={19}/>}</button><div className="mv3d-playback-status"><strong>{playing?'':'暫停 · '}{frame.phase}</strong><span>{motion.label}{motion.kind==='alternate'?` · ${frame.side===0?'右':'左'}側`:''}</span></div><div className="mv3d-speed"><label htmlFor={speedId}>速度</label><select id={speedId} aria-label="3D 播放速度" value={speed} onChange={event=>setSpeed(Number(event.target.value))}>{[.5,.75,1].map(s=><option key={s} value={s}>{s}×</option>)}</select></div></div>
+      <input aria-label="3D 動作進度" type="range" min={0} max={100} step={.5} value={frame.progress*100} disabled={!controllable} onChange={event=>scrub(Number(event.target.value)/100)}/><div className="mv3d-keyframes" role="group" aria-label="關鍵姿勢">{([['起始',0],['中段',.3],[motion.loweringFirst?'底點':'頂端',.54],['回程',.8]] as const).map(([label,value])=><button type="button" key={label} disabled={!controllable} onClick={()=>scrub(value)}>{label}</button>)}</div>
+    </div>}
+    <div className="mv3d-stage" style={{height:Number.isFinite(height)?Math.max(480,height):660}}><CanvasBoundary>{mounted?<Canvas shadows="percentage" dpr={[1,1.5]} camera={{position:[0,1.6,-5.2],fov:37,near:.1,far:80}} frameloop={visible&&(playing||!reducedMotion&&primary.size>0)?"always":"demand"} gl={{antialias:true,alpha:false}} onPointerMissed={()=>setSelected(null)} fallback={<p className="mv3d-fallback">此裝置無法顯示 WebGL 3D，仍可觀看影片與中文步驟。</p>}>
       <color attach="background" args={["#11191d"]}/><fog attach="fog" args={["#11191d",12,36]}/><ambientLight intensity={.35}/><hemisphereLight args={["#d7e2e9","#243037",.6]}/>
       <directionalLight position={[-3,5,-4]} intensity={2.4} color="#e5eff8" castShadow shadow-mapSize={[1024,1024]} shadow-bias={-.0004} shadow-normalBias={.025}/><directionalLight position={[4,3,3]} intensity={1.7} color="#ffefd9"/><spotLight position={[0,4,-3]} intensity={16} angle={.7} penumbra={1} color="#c5e7fc"/>
       <Environment resolution={128} frames={1}><Lightformer form="rect" intensity={2} position={[-3,3,-4]} scale={[4,5,1]} rotation={[0,Math.PI/4,0]}/><Lightformer form="rect" intensity={1.5} position={[4,2,3]} scale={[3,4,1]} rotation={[0,-Math.PI/2,0]}/></Environment>
       <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.002,0]} receiveShadow><planeGeometry args={[50,50]}/><meshStandardMaterial color="#172025" roughness={.85} metalness={.12}/></mesh>
-      <ProceduralHuman primaryMuscles={primaryMuscles} secondaryMuscles={secondaryMuscles} animationType={animationType} equipment={activeEquipment} playing={false} anatomy={true} cycleDuration={5} pulse={!reducedMotion&&visible} xray={xray} selected={selected} onSelect={chooseMuscle}/>
-      <CameraRig view={view.name} revision={view.revision} anatomy={true} animationType={animationType} equipment={activeEquipment}/><SceneReady sceneKey={sceneKey} onReady={setRenderedScene}/>
+      {moving&&exerciseId?<ControlledHuman exerciseId={exerciseId} equipment={activeEquipment} primaryMuscles={primaryMuscles} secondaryMuscles={secondaryMuscles} playing={playing&&visible} cycleDuration={duration} seek={seek} sidePhase={sidePhase} xray={xray} guides={guides} pulse={!reducedMotion&&visible} selected={selected} onSelect={chooseMuscle} onFrame={updateFrame}/>:<ProceduralHuman primaryMuscles={primaryMuscles} secondaryMuscles={secondaryMuscles} animationType={animationType} equipment={activeEquipment} playing={false} anatomy={true} cycleDuration={5} pulse={!reducedMotion&&visible} xray={xray} selected={selected} onSelect={chooseMuscle}/>}
+      <CameraRig view={view.name} revision={view.revision} anatomy={!moving} exerciseId={exerciseId} upperBody={upperBody} animationType={animationType} equipment={activeEquipment}/><SceneReady sceneKey={sceneKey} onReady={setRenderedScene}/>
       <EffectComposer multisampling={2} enableNormalPass={false}><Bloom mipmapBlur intensity={.58} luminanceThreshold={1.15} luminanceSmoothing={.3}/><Vignette offset={.15} darkness={.45}/></EffectComposer>
     </Canvas>:<p className="mv3d-fallback" role="status">載入 3D 肌群…</p>}</CanvasBoundary></div>
-    <div className="mv3d-camera-controls"><div className="mv3d-views" role="group" aria-label="人體視角">{([["front","正面"],["side","側面"],["back","背面"],["reset","重置"]] as const).map(([name,label])=><button type="button" key={name} aria-label={name==="reset"?"重置視角":label} aria-pressed={activeView===name} onClick={()=>setView(last=>({name,revision:last.revision+1}))}>{name==="reset"?<RotateCcw size={14}/>:null}{label}</button>)}</div></div>
-    <div className="mv3d-floor-label"><Rotate3d size={15}/><span>拖曳旋轉 · 點選肌群 · 雙指縮放</span></div>
+    <div className="mv3d-camera-controls"><div className="mv3d-views" role="group" aria-label="人體視角">{([["front","正面"],["side","側面"],["back","背面"],["reset","重置"]] as const).map(([name,label])=><button type="button" key={name} aria-label={name==="reset"?"重置視角":label} aria-pressed={activeView===name} onClick={()=>{if(name==="reset")setUpperBody(false);setView(last=>({name,revision:last.revision+1}));}}>{name==="reset"?<RotateCcw size={14}/>:null}{label}</button>)}</div>{motion&&<div className="mv3d-mode-switch"><button type="button" aria-pressed={moving} onClick={()=>setAnatomy(false)}>動作拆解</button><button type="button" aria-pressed={!moving} onClick={()=>{setAnatomy(true);setPlaying(false);}}>肌群總覽</button></div>}</div>
+    <div className="mv3d-floor-label"><Rotate3d size={15}/><span>{moving&&upperBody?"上半身放大 · ":""}拖曳旋轉 · 點選肌群 · 雙指縮放</span></div>
+    {moving&&motion&&<div className="mv3d-motion-detail">
+      <div className="mv3d-kinematics"><span><strong>{Math.round(frame.metric)}°</strong>{frame.metricLabel} · 圖中角度</span><button type="button" aria-pressed={guides} onClick={()=>setGuides(last=>!last)}><Waypoints size={15}/>關節與軌跡</button>{motion.kind==='alternate'&&<button type="button" onClick={()=>setSidePhase(last=>1-last)}>換側</button>}</div><div className="mv3d-coaching"><p>{motion.cue}</p><small>固定支撐：{motion.support}</small></div>
+    </div>}
     <div className="mv3d-muscle-list"><div className="mv3d-muscle-group"><span><i className="primary"/>主要發力</span><div>{[...primary].map(id=><button type="button" key={id} aria-pressed={selected===id} onClick={()=>chooseMuscle(id)}>{MUSCLE_LABELS[id]}</button>)}</div></div><div className="mv3d-muscle-group"><span><i className="secondary"/>協同肌群</span><div>{secondary.length?secondary.map(id=><button type="button" key={id} aria-pressed={selected===id} onClick={()=>chooseMuscle(id)}>{MUSCLE_LABELS[id]}</button>):<small>未另列協同肌群</small>}</div></div></div>
     {detail&&focused&&<div className="mv3d-focus"><span>{selected?"已選肌群":"主要發力肌群"}</span><strong>{MUSCLE_LABELS[focused]}<small>{detail.english}</small></strong>{selected&&<p>{detail.function}</p>}</div>}
-    <p className="mv3d-note">此為中立站姿的肌群位置示意，顏色不代表出力百分比。舊版動作動畫已停用；實際姿勢、器材與軌跡請切換「實人動作示範」。</p>
+    <p className="mv3d-note">{motion?'模型用於觀察關節與器材的相對位置；圖中角度不是你的目標角度，請依活動度調整，並對照實人影片。':'此動作目前提供肌群位置示意；舊版動作動畫已停用，請觀看實人示範。'}顏色不代表出力百分比。</p>
   </section>;
 }
