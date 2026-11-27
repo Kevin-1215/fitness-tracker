@@ -28,8 +28,8 @@ test('all 50 exercises have a source, an actual video destination, and variant-s
 });
 test('public 3D viewer cannot play the withheld IK motion through legacy props',()=>{
  const html=renderToString(createElement(mod.Viewer,{animationType:'press_incline',isPlayingAnimation:true,defaultPlayingAnimation:true}));
- assert.match(html,/data-mode="anatomy"/);assert.match(html,/data-motion-enabled="false"/);
- assert.ok(!html.includes('播放 3D 動作示範'));assert.ok(!html.includes('動作進度'));assert.match(html,/舊版動作動畫已停用/);
+ assert.match(html,/data-mode="unavailable"/);assert.match(html,/data-motion-enabled="false"/);
+ assert.ok(!html.includes('播放 3D 動作示範'));assert.ok(!html.includes('動作進度'));assert.match(html,/請先選擇動作/);
 });
 test('video is opt-in, always has a direct fallback, and discloses differences',()=>{
  const source=mod.exerciseSources.seated_machine_row;

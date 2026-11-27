@@ -126,10 +126,10 @@ test("two-bone IK preserves segment lengths for reachable, unreachable, zero-dis
 });
 
 test("server rendering remains browser-independent", () => {
-  const html = renderToString(createElement(module.default, { primaryMuscles: ["chest"], animationType: "press_horizontal" }));
+  const html = renderToString(createElement(module.default, { exerciseId:"bench_press",primaryMuscles: ["chest"], animationType: "press_horizontal" }));
   assert.match(html, /載入 3D 肌群/);
-  assert.match(html, /data-mode="anatomy"/);
-  assert.ok(!html.includes('播放 3D 動作示範'));
+  assert.match(html, /data-mode="controlled-motion"/);
+  assert.ok(html.includes('播放 3D 動作示範'));assert.ok(!html.includes('肌群總覽'));
   assert.match(html, /胸大肌/);
 });
 

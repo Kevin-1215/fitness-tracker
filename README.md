@@ -1,15 +1,15 @@
 # FORM｜重訓與飲食熱量追蹤
 
-已完成會員註冊／登入、D1 個人設定與訓練／飲食 API、50 個動作的來源影片與中文教學、互動 3D 肌群，以及完整的響應式儀表板。依本次指定，正式版使用 GitHub Pages 前端＋Cloudflare Worker API，D1 為唯一資料庫；也保留整站部署 Cloudflare Pages 的設定。
+已完成會員註冊／登入、D1 個人設定與訓練／飲食 API、50 個動作的來源影片、中文教學與 3D 動作拆解，以及完整的響應式儀表板。依本次指定，正式版使用 GitHub Pages 前端＋Cloudflare Worker API，D1 為唯一資料庫；也保留整站部署 Cloudflare Pages 的設定。
 
 - [儀表板與 API 欄位、公式及資料隔離](docs/API.md)
 - [GitHub Pages＋Cloudflare API 部署、CORS 與跨站 Cookie](docs/GITHUB-PAGES.md)
 
-`app/dashboard/page.tsx` 是 React 頁面入口，由 `src/main.tsx` 載入。`components/dashboard/` 包含會員畫面、動作庫與組數、休息計時器、身體設定與飲食表單；`components/ExerciseDetailModal.tsx` 整合實人影片、中文檢查點、練習組數與 3D 肌群總覽。3D 不下載模型；影片由原作者平台載入，不轉存影片。食物預設不呼叫外部食品 API。
+`app/dashboard/page.tsx` 是 React 頁面入口，由 `src/main.tsx` 載入。`components/dashboard/` 包含會員畫面、動作庫與組數、休息計時器、身體設定與飲食表單；`components/ExerciseDetailModal.tsx` 整合實人影片、中文檢查點、練習組數與 3D 拆解。3D 不下載模型；影片由原作者平台載入，不轉存影片。食物預設不呼叫外部食品 API。
 
 新版檢查與新增內容見 [3D 檢查紀錄](docs/EXERCISE-REVIEW.md)。
 
-## 動作教學與 3D 肌群
+## 動作教學與 3D 拆解
 
 動作百科共 50 項，原有代碼保持不變。
 
@@ -18,11 +18,11 @@
 - `components/ExerciseDetailModal.tsx`：預設實人影片，外部播放器按需載入；無法內嵌時保留原影片與教學來源連結。
 - `components/ExercisePractice.tsx`：可調組數、次數／秒數、每側計數與 60／90／120 秒休息倒數。完成按鈕由使用者確認，不自動偵測次數，也不自動新增重量紀錄。
 
-新增 12 個動作變式的 3D 拆解，必須以 `exerciseId` 命中 `lib/motionCatalog.ts` 才會開啟；僅傳入舊 `animationType` 不會啟用舊 IK 動畫。新骨架限制肘膝鉸鏈、固定肢段長度、腳底支撐與槓鈴握距，手與器材使用同一握點。實作位於 `lib/controlledMotion.ts` 與 `components/anatomy/ControlledHuman.tsx`。
+全部 50 項均使用新版 3D 拆解，必須以 `exerciseId` 命中 `lib/motionCatalog.ts`；僅傳入舊 `animationType` 會顯示選擇動作提示。已移除獨立的肌群總覽頁籤及模型內的肌群模式切換。肌群顏色保留在動作中。
 
-已開放：槓鈴／啞鈴平板臥推、窄握槓鈴臥推、上斜啞鈴／槓鈴臥推、槓鈴二頭彎舉、啞鈴槌式／交替彎舉、啞鈴側／前平舉、槓鈴背蹲、啞鈴羅馬尼亞硬舉。支援暫停、0.5×／0.75×／1×、拖曳進度、四個關鍵姿勢、關節與軌跡、四視角、上半身放大，以及影片／3D 對照觀看。預設影片，3D 預設暫停；兩個播放器各自控制，不自動同步。
+支援暫停、0.5×／0.75×／1×、拖曳進度、四個關鍵姿勢、關節與軌跡、四視角、上半身放大，以及影片／3D 對照觀看。鳥狗式、死蟲式與後跨弓箭步可換側；棒式保持靜態，隱藏速度與進度控制。預設影片，3D 預設暫停；兩個播放器分別控制，不自動同步。
 
-其餘 38 項提供靜態肌群總覽與實人影片。肌群色彩不代表出力比例，圖中角度是模型值，不是使用者的目標角度。數值和渲染測試可檢查程式約束與接觸一致性，不能取代真人教練或生物力學驗證。來源影片的變式差異仍會顯示於旁邊。
+`lib/jointKinematics.ts` 提供固定骨長、鉸鏈、前臂旋轉及接觸解算；`lib/controlledMotion.ts` 保留首批 12 項，`lib/extendedMotion.ts` 補齊 38 項及器材場景。`ControlledHuman` 與 `ControlledApparatus` 使用同一姿態資料，避免手、重量、纜線與踏板各自漂移。肌群色彩不代表出力比例，圖中角度是模型值。這是簡化的程式人體示意，數值與渲染檢查不能取代真人教練或個人活動度評估；影片變式差異仍會顯示。
 
 ## 常見食物
 

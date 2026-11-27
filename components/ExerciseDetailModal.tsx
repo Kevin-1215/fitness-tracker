@@ -14,7 +14,7 @@ import './motion-guide.css';
 const MuscleViewer3D = lazy(() => import("./MuscleViewer3D"));
 export default function ExerciseDetailModal({ exercise,open,onClose }: { exercise:Exercise;open:boolean;onClose:()=>void }) {
   const dialog = useRef<HTMLDialogElement>(null), titleId = useId();
-  const [ready,setReady] = useState(false),[visual,setVisual]=useState<'video'|'anatomy'|'compare'>('video');
+  const [ready,setReady] = useState(false),[visual,setVisual]=useState<'video'|'motion'|'compare'>('video');
   const guide=coachingFor(exercise),source=exerciseSources[exercise.id];
   const motion=controlledMotionFor(exercise.id);
   useEffect(() => { setReady(true); },[]);
@@ -31,10 +31,10 @@ export default function ExerciseDetailModal({ exercise,open,onClose }: { exercis
     const rect=event.currentTarget.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)onClose();
   }}>
     <header className="exercise-modal__header"><div><span className="eyebrow">MOVEMENT GUIDE</span><h2 id={titleId}>{exercise.name.split(" (")[0]}</h2><p>{exercise.name.split(" (")[1]?.replace(/\)$/,"")}</p></div><button type="button" className="icon-button" aria-label="關閉動作教學" onClick={onClose}><X size={22} /></button></header>
-    <div className={`exercise-modal__layout ${visual==='compare'?'is-comparing':''}`}><div className="exercise-modal__viewer"><div className="guide-visual-tabs" role="group" aria-label="教學顯示方式"><button type="button" aria-pressed={visual==='video'} onClick={()=>setVisual('video')}>實人示範</button><button type="button" aria-pressed={visual==='anatomy'} onClick={()=>setVisual('anatomy')}>{motion?'3D 動作拆解':'3D 肌群總覽'}</button>{motion&&<button type="button" aria-pressed={visual==='compare'} onClick={()=>setVisual('compare')}>對照觀看</button>}</div>
+    <div className={`exercise-modal__layout ${visual==='compare'?'is-comparing':''}`}><div className="exercise-modal__viewer"><div className="guide-visual-tabs" role="group" aria-label="教學顯示方式"><button type="button" aria-pressed={visual==='video'} onClick={()=>setVisual('video')}>實人示範</button><button type="button" aria-pressed={visual==='motion'} onClick={()=>setVisual('motion')}>3D 動作拆解</button>{motion&&<button type="button" aria-pressed={visual==='compare'} onClick={()=>setVisual('compare')}>對照觀看</button>}</div>
       {visual==='compare'&&<p className="comparison-note">影片與 3D 各自播放，可分別暫停，再從正面或側面對照同一個姿勢。</p>}
       <div className={`guide-media ${visual==='compare'?'guide-media--compare':''}`}>
-      {visual!=='anatomy'&&<ExerciseVideo key={exercise.id+'-video'} source={source} name={exercise.name}/>}
+      {visual!=='motion'&&<ExerciseVideo key={exercise.id+'-video'} source={source} name={exercise.name}/>}
       {visual!=='video'&&<Suspense fallback={<div className="viewer-loading" role="status">載入 3D 模型…</div>}><MuscleViewer3D key={exercise.id+'-3d'} exerciseId={exercise.id} exerciseName={exercise.name} primaryMuscles={exercise.primaryMuscles} secondaryMuscles={exercise.secondaryMuscles} animationType={exercise.animationType} equipment={exercise.equipment} height={visual==='compare'?460:530}/></Suspense>}
       </div>
       <ExercisePractice key={exercise.id} guide={guide}/></div>

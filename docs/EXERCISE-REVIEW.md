@@ -6,19 +6,21 @@
 
 舊模型用手腳端點解兩節骨架，沒有完整限制肩關節、前臂旋轉、肘膝鉸鏈方向及器材接觸。數值有限、肢段長度固定、鏡頭裝得下，都不能證明人體做得出來。先前 3D 截圖檢查和數值測試不能作為動作正確性的證明。
 
-舊 motionRig 路徑仍不對使用者開放。新版本用獨立骨架重建以下 12 個確切動作代碼，其他 38 項維持靜態肌群總覽。不是把舊的 47 種動畫全部重新打開。
+舊 motionRig 路徑仍不對使用者開放。全部 50 個動作均已改用新版骨架；其餘 38 項於本次補齊。獨立的肌群總覽頁籤及模型內切換已移除，保留動作中的肌群顏色。
 
 ## 新骨架與操作
 
-已開放槓鈴／啞鈴平板臥推、窄握槓鈴臥推、上斜啞鈴／槓鈴臥推、槓鈴二頭彎舉、啞鈴槌式／交替彎舉、啞鈴側／前平舉、槓鈴背蹲、啞鈴羅馬尼亞硬舉。啟用清單見 `lib/motionCatalog.ts`。
+清單見 `lib/motionCatalog.ts`，與 50 項動作庫逐項對應。共同關節工具位於 `lib/jointKinematics.ts`，新增姿態及場景位於 `lib/extendedMotion.ts`，器材連動位於 `components/anatomy/ControlledApparatus.tsx`。
 
-肘膝只沿局部鉸鏈軸旋轉；肢段長度固定，雙腳位置及鞋底方向固定。推舉的手腕目標透過受限雙節解算建立肘部平面，再轉成同一關節鏈；深蹲膝蓋平面參考腳尖方向。槓鈴握距固定，啞鈴掛在手內的同一握點。彎舉、平舉與折髖使用各自的關節角度路徑。這是程式化示意骨架，不是動作捕捉或個人姿勢評估。
+肘膝沿局部鉸鏈軸旋轉，前臂旋前／旋後另行處理，肢段長度固定。依動作固定腳掌、手掌、單槓、膝或上背接觸；後跨、提踵與腿推則分別處理跨步、前掌支點及踏板座標。引體向上固定手與槓、移動身體；鳥狗式與死蟲式伸出對側手腳；捲腹與側彎使用胸廓相對骨盆旋轉；棒式為等長保持。槓鈴固定握距，纜線連到握點，腿推的腳與踏板沿同一導軌移動。機械使用通用結構示意，並非重建影片中每個品牌的機型。這是程式化人體示意，不是動作捕捉或個人姿勢評估。
 
 上斜凳以來源示範約 45° 建立。參照 [NASM 臥推](https://www.nasm.org/resource-center/exercise-library/barbell-bench-press)、[NASM 羅馬尼亞硬舉](https://www.nasm.org/resource-center/exercise-library/dumbbell-romanian-deadlift)、[NASM 二頭彎舉](https://www.nasm.org/resource-center/exercise-library/barbell-bicep-curl)、[ACE 側平舉](https://www.acefitness.org/resources/everyone/exercise-library/26/lateral-raise/) 及各動作既有來源。深蹲膝蓋朝腳尖方向的設計另參考 [NSCA 背蹲評估論文](https://pmc.ncbi.nlm.nih.gov/articles/PMC4262933/)，沒有把「膝蓋不可超過腳尖」設成限制。
 
-預設影片，切換 3D 後預設暫停在中段，可選起始／中段／終點／回程、拖曳進度、慢速循環、換側、顯示關節及手部軌跡、上半身放大與四視角。對照觀看在桌面並排、手機上下排列；影片與 3D 分別控制，沒有自動同步。
+預設影片，切換 3D 後預設暫停在中段，可選起始／中段／底點或收縮位／回程、拖曳進度、慢速循環、換側、顯示關節及手部軌跡、上半身放大與四視角。棒式不顯示速度或姿勢進度。對照觀看在桌面並排、手機上下排列；影片與 3D 分別控制，沒有自動同步。
 
-測試逐項取樣 101 個姿勢，檢查肢段長度、鉸鏈方向、關節角度範圍、腳底接地、固定握距與連續性；另渲染 12 項各三個姿勢，檢查實際節點、器材握點、鞋底方向、地面穿透及四視角的取景。瀏覽器逐項檢查 12 項的關鍵姿勢，另抽查正／側視角、換側、慢速播放與手機控制列。這些測試檢查程式與畫面一致性，尚未經真人教練審核，不等於生物力學認證；圖中角度不應作為個人目標角度。
+測試逐項取樣 101 個姿勢，檢查骨長、鉸鏈方向、設定角度範圍與連續性；另渲染 50 項各三個姿勢，檢查實際節點、握點、網格頂點有無穿地，以及四視角／兩種畫面比例。另驗證固定手支撐、對側手腳、提踵支點、踏板局部座標與等長姿勢。瀏覽器對新增 38 項保存起始與關鍵姿勢，共 84 張截圖（含修正後的四項複查），逐組比對；另抽查手機、換側、影片對照及模式移除。測試檢查程式與畫面一致性，尚未經真人教練審核，不等於生物力學認證；圖中角度不應作為個人目標角度。
+
+新增查核除下表既有來源，另參照 [ACE 凳上單臂划船](https://www.acefitness.org/resources/everyone/exercise-library/126/single-arm-row/)、[NASM 下拉握法](https://www.nasm.org/resource-center/blog/training/the-biomechanics-of-the-lat-pulldown-muscles-grip-and-form)、[ACE 三頭下壓](https://www.acefitness.org/resources/everyone/exercise-library/185/triceps-pushdowns/)、[ACE 過頭三頭伸展](https://www.acefitness.org/resources/everyone/exercise-library/74/triceps-extension/)、[Bret Contreras 臀推](https://bretcontreras.com/how-to-hip-thrust/)、[NASM 死蟲式](https://www.nasm.org/resource-center/exercise-library/dead-bug) 及 [鳥狗式](https://www.nasm.org/resource-center/exercise-library/bird-dog)。姿態數值是本專案將文字與來源示範轉成的工程設計；本次未逐幀觀看全部影片。
 
 ## 來源與查核範圍
 
